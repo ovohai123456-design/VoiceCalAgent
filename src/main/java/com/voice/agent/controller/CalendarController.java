@@ -25,6 +25,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Supplier;
 
+/**
+ * 日历 REST 接口。
+ *
+ * <p>这一层只负责 HTTP 参数组装和统一响应包装，业务规则放在 CalendarService 中。
+ * 时间参数统一使用 yyyy-MM-dd HH:mm:ss，和 application.yml 的 Jackson 配置保持一致。</p>
+ */
 @RestController
 @RequestMapping("/api/calendar")
 public class CalendarController {
@@ -34,11 +40,21 @@ public class CalendarController {
         this.calendarService = calendarService;
     }
 
+    /**
+     * 创建事件。
+     *
+     * <p>创建事件时，会检查时间冲突，如果冲突则返回409错误。</p>
+     */
     @PostMapping("/events")
     public ApiResponse<CalendarEventVO> createEvent(@RequestBody CreateEventRequest request) {
         return handle(() -> calendarService.createEvent(request));
     }
 
+    /**
+     * 查询事件。
+     *
+     * <p>查询事件时，会返回所有符合条件的事件，包括用户自己创建的事件和被共享的事件。</p>
+     */
     @GetMapping("/events")
     public ApiResponse<List<CalendarEventVO>> queryEvents(
             @RequestParam(required = false) Long userId,
@@ -47,6 +63,7 @@ public class CalendarController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status
     ) {
+        // GET 查询参数不适合直接绑定复杂 DTO，这里手动组装，避免时间格式转换不稳定。
         QueryEventRequest request = new QueryEventRequest();
         request.setUserId(userId);
         request.setStartTime(startTime);
@@ -56,6 +73,11 @@ public class CalendarController {
         return handle(() -> calendarService.queryEvents(request));
     }
 
+    /**
+     * 更新事件。
+     *
+     * <p>更新事件时，会检查时间冲突，如果冲突则返回409错误。</p>
+     */
     @PutMapping("/events/{eventId}")
     public ApiResponse<CalendarEventVO> updateEvent(
             @PathVariable Long eventId,
@@ -64,6 +86,11 @@ public class CalendarController {
         return handle(() -> calendarService.updateEvent(eventId, request));
     }
 
+    /**
+     * 删除事件。
+     *
+     * <p>删除事件时，会检查事件是否属于当前用户，如果不是则返回403错误。</p>
+     */
     @DeleteMapping("/events/{eventId}")
     public ApiResponse<Boolean> deleteEvent(
             @PathVariable Long eventId,
@@ -72,11 +99,21 @@ public class CalendarController {
         return handle(() -> calendarService.deleteEvent(eventId, userId));
     }
 
+    /**
+     * 检查时间冲突。
+     *
+     * <p>检查时间冲突时，会返回所有冲突的事件。</p>
+     */
     @PostMapping("/conflict/check")
     public ApiResponse<ConflictResultVO> checkConflict(@RequestBody ConflictCheckRequest request) {
         return handle(() -> calendarService.checkConflict(request));
     }
 
+    /**
+     * 查找空闲时间段。
+     *
+     * <p>查找空闲时间段时，会返回所有空闲时间段。</p>
+     */
     @PostMapping("/free-slots")
     public ApiResponse<List<FreeSlotVO>> findFreeSlots(@RequestBody FreeSlotRequest request) {
         return handle(() -> calendarService.findFreeSlots(request));
