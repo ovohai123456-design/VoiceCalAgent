@@ -6,9 +6,9 @@ spring:
     name: voicecal-agent
 
   datasource:
-    url: jdbc:mysql://localhost:13306/voicecal?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://62.234.45.155:13306/voicecal?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
-    password: root
+    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jackson:
