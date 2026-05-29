@@ -1,0 +1,392 @@
+package com.voice.agent.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.voice.agent.mapper.CalendarEventMapper;
+import com.voice.agent.model.dto.ConflictCheckRequest;
+import com.voice.agent.model.dto.CreateEventRequest;
+import com.voice.agent.model.dto.EventResolveRequest;
+import com.voice.agent.model.dto.FreeSlotRequest;
+import com.voice.agent.model.dto.QueryEventRequest;
+import com.voice.agent.model.dto.UpdateEventRequest;
+import com.voice.agent.model.entity.CalendarEventEntity;
+import com.voice.agent.model.vo.CalendarEventVO;
+import com.voice.agent.model.vo.ConflictResultVO;
+import com.voice.agent.model.vo.FreeSlotVO;
+import com.voice.agent.service.CalendarService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+@Service
+public class CalendarServiceImpl implements CalendarService {
+    private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final String STATUS_DELETED = "DELETED";
+    private static final String SOURCE_API = "API";
+
+    private final CalendarEventMapper calendarEventMapper;
+
+    @Value("${voicecal.default-user-id:1}")
+    private Long defaultUserId;
+
+    @Value("${voicecal.calendar.default-duration-minutes:60}")
+    private Integer defaultDurationMinutes;
+
+    @Value("${voicecal.calendar.work-start-time:09:00}")
+    private String workStartTime;
+
+    @Value("${voicecal.calendar.work-end-time:22:00}")
+    private String workEndTime;
+
+    @Value("${voicecal.calendar.max-free-slot-count:3}")
+    private Integer maxFreeSlotCount;
+
+    public CalendarServiceImpl(CalendarEventMapper calendarEventMapper) {
+        this.calendarEventMapper = calendarEventMapper;
+    }
+
+    @Override
+    @Transactional
+    public CalendarEventVO createEvent(CreateEventRequest request) {
+        validateCreateRequest(request);
+        Long userId = resolveUserId(request.getUserId());
+
+        CalendarEventEntity existing = findByIdempotencyKey(userId, request.getIdempotencyKey());
+        if (existing != null) {
+            return toVO(existing);
+        }
+
+        ConflictCheckRequest conflictRequest = new ConflictCheckRequest();
+        conflictRequest.setUserId(userId);
+        conflictRequest.setStartTime(request.getStartTime());
+        conflictRequest.setEndTime(request.getEndTime());
+        ConflictResultVO conflict = checkConflict(conflictRequest);
+        if (Boolean.TRUE.equals(conflict.getHasConflict())) {
+            throw new IllegalStateException("目标时间段已有日程冲突");
+        }
+
+        CalendarEventEntity entity = new CalendarEventEntity();
+        entity.setUserId(userId);
+        entity.setTitle(request.getTitle().trim());
+        entity.setStartTime(request.getStartTime());
+        entity.setEndTime(request.getEndTime());
+        entity.setLocation(trimToNull(request.getLocation()));
+        entity.setDescription(trimToNull(request.getDescription()));
+        entity.setMeetingUrl(trimToNull(request.getMeetingUrl()));
+        entity.setReminderMinutes(request.getReminderMinutes());
+        entity.setSource(StringUtils.hasText(request.getSource()) ? request.getSource().trim() : SOURCE_API);
+        entity.setStatus(STATUS_ACTIVE);
+        entity.setIdempotencyKey(trimToNull(request.getIdempotencyKey()));
+        entity.setCreatedByTaskId(trimToNull(request.getTaskId()));
+
+        calendarEventMapper.insert(entity);
+        return toVO(calendarEventMapper.selectById(entity.getId()));
+    }
+
+    @Override
+    public List<CalendarEventVO> queryEvents(QueryEventRequest request) {
+        QueryEventRequest safeRequest = request == null ? new QueryEventRequest() : request;
+        Long userId = resolveUserId(safeRequest.getUserId());
+
+        LambdaQueryWrapper<CalendarEventEntity> wrapper = Wrappers.lambdaQuery(CalendarEventEntity.class)
+                .eq(CalendarEventEntity::getUserId, userId);
+
+        if (StringUtils.hasText(safeRequest.getStatus())) {
+            wrapper.eq(CalendarEventEntity::getStatus, safeRequest.getStatus().trim());
+        } else {
+            wrapper.ne(CalendarEventEntity::getStatus, STATUS_DELETED);
+        }
+
+        if (safeRequest.getStartTime() != null && safeRequest.getEndTime() != null) {
+            validateTimeRange(safeRequest.getStartTime(), safeRequest.getEndTime());
+            wrapper.lt(CalendarEventEntity::getStartTime, safeRequest.getEndTime())
+                    .gt(CalendarEventEntity::getEndTime, safeRequest.getStartTime());
+        } else if (safeRequest.getStartTime() != null) {
+            wrapper.ge(CalendarEventEntity::getStartTime, safeRequest.getStartTime());
+        } else if (safeRequest.getEndTime() != null) {
+            wrapper.le(CalendarEventEntity::getEndTime, safeRequest.getEndTime());
+        }
+
+        if (StringUtils.hasText(safeRequest.getKeyword())) {
+            wrapper.like(CalendarEventEntity::getTitle, safeRequest.getKeyword().trim());
+        }
+
+        wrapper.orderByAsc(CalendarEventEntity::getStartTime);
+        return calendarEventMapper.selectList(wrapper)
+                .stream()
+                .map(this::toVO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public CalendarEventVO updateEvent(Long eventId, UpdateEventRequest request) {
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId 不能为空");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("更新参数不能为空");
+        }
+
+        Long userId = resolveUserId(request.getUserId());
+        CalendarEventEntity entity = getActiveEvent(eventId, userId);
+
+        LocalDateTime newStart = request.getStartTime() == null ? entity.getStartTime() : request.getStartTime();
+        LocalDateTime newEnd = request.getEndTime() == null ? entity.getEndTime() : request.getEndTime();
+        validateTimeRange(newStart, newEnd);
+
+        boolean timeChanged = !Objects.equals(entity.getStartTime(), newStart)
+                || !Objects.equals(entity.getEndTime(), newEnd);
+        if (timeChanged) {
+            ConflictCheckRequest conflictRequest = new ConflictCheckRequest();
+            conflictRequest.setUserId(userId);
+            conflictRequest.setStartTime(newStart);
+            conflictRequest.setEndTime(newEnd);
+            conflictRequest.setExcludeEventId(eventId);
+            ConflictResultVO conflict = checkConflict(conflictRequest);
+            if (Boolean.TRUE.equals(conflict.getHasConflict())) {
+                throw new IllegalStateException("目标时间段已有日程冲突");
+            }
+        }
+
+        if (StringUtils.hasText(request.getTitle())) {
+            entity.setTitle(request.getTitle().trim());
+        }
+        entity.setStartTime(newStart);
+        entity.setEndTime(newEnd);
+        if (request.getLocation() != null) {
+            entity.setLocation(trimToNull(request.getLocation()));
+        }
+        if (request.getDescription() != null) {
+            entity.setDescription(trimToNull(request.getDescription()));
+        }
+        if (request.getMeetingUrl() != null) {
+            entity.setMeetingUrl(trimToNull(request.getMeetingUrl()));
+        }
+        if (request.getReminderMinutes() != null) {
+            entity.setReminderMinutes(request.getReminderMinutes());
+        }
+        if (StringUtils.hasText(request.getTaskId())) {
+            entity.setCreatedByTaskId(request.getTaskId().trim());
+        }
+
+        calendarEventMapper.updateById(entity);
+        return toVO(calendarEventMapper.selectById(eventId));
+    }
+
+    @Override
+    @Transactional
+    public Boolean deleteEvent(Long eventId, Long userId) {
+        if (eventId == null) {
+            throw new IllegalArgumentException("eventId 不能为空");
+        }
+        CalendarEventEntity entity = getActiveEvent(eventId, resolveUserId(userId));
+        entity.setStatus(STATUS_DELETED);
+        return calendarEventMapper.updateById(entity) > 0;
+    }
+
+    @Override
+    public ConflictResultVO checkConflict(ConflictCheckRequest request) {
+        validateConflictRequest(request);
+        Long userId = resolveUserId(request.getUserId());
+
+        List<CalendarEventEntity> conflictEvents = listEventsForRange(
+                userId,
+                request.getStartTime(),
+                request.getEndTime(),
+                request.getExcludeEventId()
+        );
+
+        ConflictResultVO result = new ConflictResultVO();
+        result.setHasConflict(!conflictEvents.isEmpty());
+        result.setConflictEvents(conflictEvents.stream().map(this::toVO).collect(Collectors.toList()));
+        if (!conflictEvents.isEmpty()) {
+            int duration = (int) java.time.Duration.between(request.getStartTime(), request.getEndTime()).toMinutes();
+            result.setSuggestedSlots(findFreeSlotsInternal(
+                    userId,
+                    request.getStartTime().toLocalDate(),
+                    Math.max(duration, 1),
+                    maxFreeSlotCount,
+                    request.getExcludeEventId()
+            ));
+        }
+        return result;
+    }
+
+    @Override
+    public List<FreeSlotVO> findFreeSlots(FreeSlotRequest request) {
+        FreeSlotRequest safeRequest = request == null ? new FreeSlotRequest() : request;
+        return findFreeSlotsInternal(
+                resolveUserId(safeRequest.getUserId()),
+                safeRequest.getDate() == null ? LocalDate.now() : safeRequest.getDate(),
+                safeRequest.getDurationMinutes() == null ? defaultDurationMinutes : safeRequest.getDurationMinutes(),
+                safeRequest.getMaxCount() == null ? maxFreeSlotCount : safeRequest.getMaxCount(),
+                null
+        );
+    }
+
+    @Override
+    public List<CalendarEventVO> findCandidateEvents(EventResolveRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("事件定位参数不能为空");
+        }
+        QueryEventRequest query = new QueryEventRequest();
+        query.setUserId(request.getUserId());
+        query.setStartTime(request.getRangeStart());
+        query.setEndTime(request.getRangeEnd());
+        query.setKeyword(request.getTitleKeyword());
+        return queryEvents(query);
+    }
+
+    private CalendarEventEntity findByIdempotencyKey(Long userId, String idempotencyKey) {
+        if (!StringUtils.hasText(idempotencyKey)) {
+            return null;
+        }
+        return calendarEventMapper.selectOne(Wrappers.lambdaQuery(CalendarEventEntity.class)
+                .eq(CalendarEventEntity::getUserId, userId)
+                .eq(CalendarEventEntity::getIdempotencyKey, idempotencyKey.trim())
+                .ne(CalendarEventEntity::getStatus, STATUS_DELETED)
+                .last("LIMIT 1"));
+    }
+
+    private CalendarEventEntity getActiveEvent(Long eventId, Long userId) {
+        CalendarEventEntity entity = calendarEventMapper.selectOne(Wrappers.lambdaQuery(CalendarEventEntity.class)
+                .eq(CalendarEventEntity::getId, eventId)
+                .eq(CalendarEventEntity::getUserId, userId)
+                .ne(CalendarEventEntity::getStatus, STATUS_DELETED)
+                .last("LIMIT 1"));
+        if (entity == null) {
+            throw new IllegalArgumentException("未找到日程或日程已删除");
+        }
+        return entity;
+    }
+
+    private List<CalendarEventEntity> listEventsForRange(
+            Long userId,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            Long excludeEventId
+    ) {
+        LambdaQueryWrapper<CalendarEventEntity> wrapper = Wrappers.lambdaQuery(CalendarEventEntity.class)
+                .eq(CalendarEventEntity::getUserId, userId)
+                .ne(CalendarEventEntity::getStatus, STATUS_DELETED)
+                .lt(CalendarEventEntity::getStartTime, endTime)
+                .gt(CalendarEventEntity::getEndTime, startTime);
+        if (excludeEventId != null) {
+            wrapper.ne(CalendarEventEntity::getId, excludeEventId);
+        }
+        wrapper.orderByAsc(CalendarEventEntity::getStartTime);
+        return calendarEventMapper.selectList(wrapper);
+    }
+
+    private List<FreeSlotVO> findFreeSlotsInternal(
+            Long userId,
+            LocalDate date,
+            Integer durationMinutes,
+            Integer maxCount,
+            Long excludeEventId
+    ) {
+        if (durationMinutes == null || durationMinutes <= 0) {
+            throw new IllegalArgumentException("durationMinutes 必须大于 0");
+        }
+        int limit = maxCount == null || maxCount <= 0 ? maxFreeSlotCount : maxCount;
+        LocalDateTime dayStart = date.atTime(LocalTime.parse(workStartTime));
+        LocalDateTime dayEnd = date.atTime(LocalTime.parse(workEndTime));
+
+        List<CalendarEventEntity> busyEvents = listEventsForRange(userId, dayStart, dayEnd, excludeEventId);
+        busyEvents.sort(Comparator.comparing(CalendarEventEntity::getStartTime));
+
+        List<FreeSlotVO> slots = new ArrayList<>();
+        LocalDateTime cursor = dayStart;
+        for (CalendarEventEntity event : busyEvents) {
+            if (slots.size() >= limit) {
+                break;
+            }
+            LocalDateTime busyStart = event.getStartTime().isBefore(dayStart) ? dayStart : event.getStartTime();
+            LocalDateTime busyEnd = event.getEndTime().isAfter(dayEnd) ? dayEnd : event.getEndTime();
+            if (!cursor.plusMinutes(durationMinutes).isAfter(busyStart)) {
+                slots.add(newFreeSlot(cursor, cursor.plusMinutes(durationMinutes)));
+            }
+            if (busyEnd.isAfter(cursor)) {
+                cursor = busyEnd;
+            }
+        }
+
+        if (slots.size() < limit && !cursor.plusMinutes(durationMinutes).isAfter(dayEnd)) {
+            slots.add(newFreeSlot(cursor, cursor.plusMinutes(durationMinutes)));
+        }
+        return slots;
+    }
+
+    private FreeSlotVO newFreeSlot(LocalDateTime startTime, LocalDateTime endTime) {
+        FreeSlotVO slot = new FreeSlotVO();
+        slot.setStartTime(startTime);
+        slot.setEndTime(endTime);
+        return slot;
+    }
+
+    private void validateCreateRequest(CreateEventRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("创建日程参数不能为空");
+        }
+        if (!StringUtils.hasText(request.getTitle())) {
+            throw new IllegalArgumentException("title 不能为空");
+        }
+        validateTimeRange(request.getStartTime(), request.getEndTime());
+    }
+
+    private void validateConflictRequest(ConflictCheckRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("冲突检测参数不能为空");
+        }
+        validateTimeRange(request.getStartTime(), request.getEndTime());
+    }
+
+    private void validateTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
+        if (startTime == null) {
+            throw new IllegalArgumentException("startTime 不能为空");
+        }
+        if (endTime == null) {
+            throw new IllegalArgumentException("endTime 不能为空");
+        }
+        if (!endTime.isAfter(startTime)) {
+            throw new IllegalArgumentException("endTime 必须晚于 startTime");
+        }
+    }
+
+    private Long resolveUserId(Long userId) {
+        return userId == null ? defaultUserId : userId;
+    }
+
+    private String trimToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private CalendarEventVO toVO(CalendarEventEntity entity) {
+        CalendarEventVO vo = new CalendarEventVO();
+        vo.setId(entity.getId());
+        vo.setUserId(entity.getUserId());
+        vo.setTitle(entity.getTitle());
+        vo.setStartTime(entity.getStartTime());
+        vo.setEndTime(entity.getEndTime());
+        vo.setLocation(entity.getLocation());
+        vo.setDescription(entity.getDescription());
+        vo.setMeetingUrl(entity.getMeetingUrl());
+        vo.setReminderMinutes(entity.getReminderMinutes());
+        vo.setSource(entity.getSource());
+        vo.setStatus(entity.getStatus());
+        vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
+        return vo;
+    }
+}

@@ -1,12 +1,16 @@
 package com.voice.agent.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import java.time.LocalDateTime;
 
 public class CalendarEventVO {
     private Long id;
     private Long userId;
     private String title;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startTime;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endTime;
     private String location;
     private String description;
@@ -14,7 +18,9 @@ public class CalendarEventVO {
     private Integer reminderMinutes;
     private String source;
     private String status;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
 
     public Long getId() {

@@ -1,9 +1,12 @@
 package com.voice.agent.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import java.time.LocalDate;
 
 public class FreeSlotRequest {
     private Long userId;
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate date;
     private Integer durationMinutes;
     private Integer maxCount;

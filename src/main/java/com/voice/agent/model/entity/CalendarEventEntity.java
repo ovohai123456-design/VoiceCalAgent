@@ -1,8 +1,14 @@
 package com.voice.agent.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.time.LocalDateTime;
 
+@TableName("calendar_event")
 public class CalendarEventEntity {
+    @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
     private String title;
