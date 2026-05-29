@@ -1,4 +1,5 @@
 package com.voice.agent.llm;
 
-public class LlmClient {
+public interface LlmClient {
+    String chat(String systemPrompt, String userPrompt);
 }
