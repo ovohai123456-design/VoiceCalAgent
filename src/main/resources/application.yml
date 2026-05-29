@@ -52,8 +52,10 @@ voicecal:
 
 llm:
   provider: dashscope
+  router:
+    enabled: true
   dashscope:
-    api-key: ${DASHSCOPE_API_KEY}
+    api-key: ${DASHSCOPE_API_KEY:}
     model: qwen-flash
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
     timeout-ms: 15000

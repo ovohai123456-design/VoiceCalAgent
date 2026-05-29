@@ -4,19 +4,25 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="实体类，VO，DTO">
+    <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="mapper, service, controller">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ConfirmService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ConfirmService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/DefaultValueResolver.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/DefaultValueResolver.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/AgentController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/AgentController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/CalendarController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/CalendarController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/ConflictCheckRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/ConflictCheckRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/CreateEventRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/CreateEventRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/EventResolveRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/EventResolveRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/FreeSlotRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/FreeSlotRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/QueryEventRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/QueryEventRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/UpdateEventRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/UpdateEventRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/CalendarEventEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/CalendarEventEntity.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/vo/CalendarEventVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/vo/CalendarEventVO.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/vo/FreeSlotVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/vo/FreeSlotVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/LlmClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/LlmClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/LlmJsonExtractor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/LlmJsonExtractor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/PromptTemplateService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/PromptTemplateService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/CalendarEventMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/CalendarEventMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/AgentStepEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/AgentStepEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/AgentTaskEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/AgentTaskEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/PendingActionEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/PendingActionEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/CalendarService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/CalendarService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/impl/CalendarServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/impl/CalendarServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,6 +84,7 @@
     "project.structure.proportion": "0.15",
     "project.structure.side.proportion": "0.0",
     "settings.editor.selected.configurable": "ml.llm.LLMThirdPartyAiProvidersConfigurable",
+    "ts.external.directory.path": "D:\\Java147\\code\\VoiceCalAgent\\VoiceCal\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
   },
   "keyToStringList": {
@@ -127,7 +134,7 @@
       <workItem from="1780052377245" duration="2596000" />
       <workItem from="1780062766510" duration="109000" />
       <workItem from="1780062885930" duration="185000" />
-      <workItem from="1780063084503" duration="4275000" />
+      <workItem from="1780063084503" duration="7830000" />
     </task>
     <task id="LOCAL-00001" summary="实体类，VO，DTO">
       <option name="closed" value="true" />
@@ -137,7 +144,15 @@
       <option name="project" value="LOCAL" />
       <updated>1780066244813</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="mapper, service, controller">
+      <option name="closed" value="true" />
+      <created>1780067425136</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1780067425136</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -194,7 +209,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="实体类，VO，DTO" />
-    <option name="LAST_COMMIT_MESSAGE" value="实体类，VO，DTO" />
+    <MESSAGE value="mapper, service, controller" />
+    <option name="LAST_COMMIT_MESSAGE" value="mapper, service, controller" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
