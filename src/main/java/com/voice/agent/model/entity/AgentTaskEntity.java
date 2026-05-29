@@ -1,8 +1,14 @@
 package com.voice.agent.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.time.LocalDateTime;
 
+@TableName("agent_task")
 public class AgentTaskEntity {
+    @TableId(value = "task_id", type = IdType.INPUT)
     private String taskId;
     private Long userId;
     private String sessionId;

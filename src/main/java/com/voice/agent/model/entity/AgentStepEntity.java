@@ -1,8 +1,14 @@
 package com.voice.agent.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.time.LocalDateTime;
 
+@TableName("agent_step")
 public class AgentStepEntity {
+    @TableId(type = IdType.AUTO)
     private Long id;
     private String taskId;
     private Integer stepOrder;
