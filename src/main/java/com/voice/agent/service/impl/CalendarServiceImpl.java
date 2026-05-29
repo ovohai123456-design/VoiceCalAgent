@@ -28,6 +28,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * 日历核心业务实现。
+ *
+ * <p>当前实现直接基于 MyBatis-Plus 操作 calendar_event 表，先保证日历能力真实可用。
+ * 之后 Agent 确认、Workflow 记录和提醒任务可以在这个服务外层编排。</p>
+ */
 @Service
 public class CalendarServiceImpl implements CalendarService {
     private static final String STATUS_ACTIVE = "ACTIVE";
@@ -61,11 +67,13 @@ public class CalendarServiceImpl implements CalendarService {
         validateCreateRequest(request);
         Long userId = resolveUserId(request.getUserId());
 
+        // 客户端或 Agent 重试同一次创建请求时，优先返回已有结果，避免重复写入日程。
         CalendarEventEntity existing = findByIdempotencyKey(userId, request.getIdempotencyKey());
         if (existing != null) {
             return toVO(existing);
         }
 
+        // 创建前必须先做冲突检测，避免同一用户同一时间段出现重叠日程。
         ConflictCheckRequest conflictRequest = new ConflictCheckRequest();
         conflictRequest.setUserId(userId);
         conflictRequest.setStartTime(request.getStartTime());
@@ -141,10 +149,12 @@ public class CalendarServiceImpl implements CalendarService {
         Long userId = resolveUserId(request.getUserId());
         CalendarEventEntity entity = getActiveEvent(eventId, userId);
 
+        // 允许局部更新：未传的时间字段沿用原值，但最终仍必须构成合法时间段。
         LocalDateTime newStart = request.getStartTime() == null ? entity.getStartTime() : request.getStartTime();
         LocalDateTime newEnd = request.getEndTime() == null ? entity.getEndTime() : request.getEndTime();
         validateTimeRange(newStart, newEnd);
 
+        // 只有时间发生变化时才重新检测冲突，并排除当前被修改的事件。
         boolean timeChanged = !Objects.equals(entity.getStartTime(), newStart)
                 || !Objects.equals(entity.getEndTime(), newEnd);
         if (timeChanged) {
@@ -211,6 +221,7 @@ public class CalendarServiceImpl implements CalendarService {
         result.setHasConflict(!conflictEvents.isEmpty());
         result.setConflictEvents(conflictEvents.stream().map(this::toVO).collect(Collectors.toList()));
         if (!conflictEvents.isEmpty()) {
+            // 冲突时才计算推荐空闲段，减少普通检测的数据库和内存开销。
             int duration = (int) java.time.Duration.between(request.getStartTime(), request.getEndTime()).toMinutes();
             result.setSuggestedSlots(findFreeSlotsInternal(
                     userId,
@@ -277,6 +288,7 @@ public class CalendarServiceImpl implements CalendarService {
             LocalDateTime endTime,
             Long excludeEventId
     ) {
+        // 重叠判断：newStart < existEnd && newEnd > existStart。
         LambdaQueryWrapper<CalendarEventEntity> wrapper = Wrappers.lambdaQuery(CalendarEventEntity.class)
                 .eq(CalendarEventEntity::getUserId, userId)
                 .ne(CalendarEventEntity::getStatus, STATUS_DELETED)
@@ -306,6 +318,7 @@ public class CalendarServiceImpl implements CalendarService {
         List<CalendarEventEntity> busyEvents = listEventsForRange(userId, dayStart, dayEnd, excludeEventId);
         busyEvents.sort(Comparator.comparing(CalendarEventEntity::getStartTime));
 
+        // 用 cursor 从工作日开始时间向后扫描，遇到忙碌事件就跳到该事件结束时间。
         List<FreeSlotVO> slots = new ArrayList<>();
         LocalDateTime cursor = dayStart;
         for (CalendarEventEntity event : busyEvents) {
