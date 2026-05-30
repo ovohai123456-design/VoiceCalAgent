@@ -4,8 +4,11 @@ import com.voice.agent.agent.AgentApplicationService;
 import com.voice.agent.model.dto.AgentCancelRequest;
 import com.voice.agent.model.dto.AgentConfirmRequest;
 import com.voice.agent.model.dto.AgentExecuteRequest;
+import com.voice.agent.model.dto.AgentSelectSlotRequest;
+import com.voice.agent.model.dto.AgentSelectEventRequest;
 import com.voice.agent.model.vo.AgentResponse;
 import com.voice.agent.model.vo.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +23,7 @@ import java.util.function.Supplier;
  */
 @RestController
 @RequestMapping("/api/agent")
+@Slf4j
 public class AgentController {
     private final AgentApplicationService agentApplicationService;
 
@@ -29,6 +33,7 @@ public class AgentController {
 
     @PostMapping("/execute")
     public ApiResponse<AgentResponse> execute(@RequestBody AgentExecuteRequest request) {
+        log.info("开始执行 Agent 指令");
         return handle(() -> agentApplicationService.execute(request));
     }
 
@@ -40,6 +45,16 @@ public class AgentController {
     @PostMapping("/cancel")
     public ApiResponse<AgentResponse> cancel(@RequestBody AgentCancelRequest request) {
         return handle(() -> agentApplicationService.cancel(request));
+    }
+
+    @PostMapping("/select-slot")
+    public ApiResponse<AgentResponse> selectSlot(@RequestBody AgentSelectSlotRequest request) {
+        return handle(() -> agentApplicationService.selectSlot(request));
+    }
+
+    @PostMapping("/select-event")
+    public ApiResponse<AgentResponse> selectEvent(@RequestBody AgentSelectEventRequest request) {
+        return handle(() -> agentApplicationService.selectEvent(request));
     }
 
     private ApiResponse<AgentResponse> handle(Supplier<AgentResponse> supplier) {

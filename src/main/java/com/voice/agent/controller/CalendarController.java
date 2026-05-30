@@ -94,9 +94,10 @@ public class CalendarController {
     @DeleteMapping("/events/{eventId}")
     public ApiResponse<Boolean> deleteEvent(
             @PathVariable Long eventId,
-            @RequestParam(required = false) Long userId
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false, defaultValue = "SINGLE") String scope
     ) {
-        return handle(() -> calendarService.deleteEvent(eventId, userId));
+        return handle(() -> calendarService.deleteEvent(eventId, userId, scope));
     }
 
     /**
