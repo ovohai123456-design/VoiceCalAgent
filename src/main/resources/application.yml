@@ -6,14 +6,23 @@ spring:
     name: voicecal-agent
 
   datasource:
-    url: jdbc:mysql://62.234.45.155:13306/voicecal?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: ${DB_URL:jdbc:mysql://62.234.45.155:13306/voicecal?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
+
+  sql:
+    init:
+      mode: never
+
+logging:
+  level:
+    com.voice.agent: INFO
+    org.springframework.web: INFO
 
 
 
@@ -32,10 +41,16 @@ voicecal:
     work-start-time: "09:00"
     work-end-time: "22:00"
     max-free-slot-count: 3
+    recurrence-default-count: 12
+    recurrence-max-count: 100
 
   confirm:
     expire-minutes: 5
     single-pending-per-session: true
+    auto-execute-safe-writes: true
+
+  conversation:
+    clarification-timeout-minutes: 10
 
   skill:
     location: classpath:/skills/**/*.yaml
@@ -55,7 +70,7 @@ llm:
   router:
     enabled: true
   dashscope:
-    api-key: ${DASHSCOPE_API_KEY:}
+    api-key: "sk-b136915c79474624afca76922812c82a"
     model: qwen-flash
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
     timeout-ms: 15000
