@@ -3,6 +3,7 @@ package com.voice.agent.llm;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +33,7 @@ public class PromptTemplateService {
     private String load(String classpathLocation) {
         Resource resource = resourceLoader.getResource("classpath:" + classpathLocation);
         try (InputStream inputStream = resource.getInputStream()) {
-            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            return StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new IllegalStateException("加载 Prompt 模板失败：" + classpathLocation, e);
         }

@@ -4,6 +4,8 @@ import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -15,6 +17,8 @@ import org.springframework.util.StringUtils;
  */
 @Component
 public class DashScopeLlmClient implements LlmClient {
+    private static final Logger log = LoggerFactory.getLogger(DashScopeLlmClient.class);
+
     @Value("${llm.dashscope.api-key:}")
     private String apiKey;
 
@@ -27,28 +31,49 @@ public class DashScopeLlmClient implements LlmClient {
     @Override
     public String chat(String systemPrompt, String userPrompt) {
         if (!StringUtils.hasText(apiKey) || apiKey.startsWith("${")) {
+            log.warn("LLM request skipped provider=dashscope reason=api_key_missing");
             throw new IllegalStateException("DASHSCOPE_API_KEY 未配置");
         }
 
-        OpenAIClient client = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .baseUrl(normalizeBaseUrl(baseUrl))
-                .build();
+        long startedAt = System.currentTimeMillis();
+        String normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+        log.info("LLM request start provider=dashscope model={} baseUrl={}", model, normalizedBaseUrl);
+        try {
+            OpenAIClient client = OpenAIOkHttpClient.builder()
+                    .apiKey(apiKey)
+                    .baseUrl(normalizedBaseUrl)
+                    .build();
 
-        ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(model)
-                .addSystemMessage(systemPrompt)
-                .addUserMessage(userPrompt)
-                .temperature(0.0)
-                .maxTokens(1200)
-                .build();
+            ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
+                    .model(model)
+                    .addSystemMessage(systemPrompt)
+                    .addUserMessage(userPrompt)
+                    .temperature(0.0)
+                    .maxTokens(1200)
+                    .build();
 
-        ChatCompletion completion = client.chat().completions().create(params);
-        if (completion.choices().isEmpty()) {
-            throw new IllegalStateException("LLM 没有返回候选结果");
+            ChatCompletion completion = client.chat().completions().create(params);
+            if (completion.choices().isEmpty()) {
+                throw new IllegalStateException("LLM 没有返回候选结果");
+            }
+            String content = completion.choices().get(0).message().content()
+                    .orElseThrow(() -> new IllegalStateException("LLM 返回内容为空"));
+            log.info(
+                    "LLM request success provider=dashscope model={} elapsedMs={} responseChars={}",
+                    model,
+                    System.currentTimeMillis() - startedAt,
+                    content.length()
+            );
+            return content;
+        } catch (RuntimeException e) {
+            log.warn(
+                    "LLM request failed provider=dashscope model={} elapsedMs={} error={}",
+                    model,
+                    System.currentTimeMillis() - startedAt,
+                    e.toString()
+            );
+            throw e;
         }
-        return completion.choices().get(0).message().content()
-                .orElseThrow(() -> new IllegalStateException("LLM 返回内容为空"));
     }
 
     private String normalizeBaseUrl(String value) {
