@@ -32,12 +32,32 @@ export interface AgentCancelRequest {
   confirmToken: string;
 }
 
+export interface AgentSelectSlotRequest {
+  userId: string;
+  sessionId: string;
+  confirmToken: string;
+  slotIndex: number;
+}
+
+export interface AgentSelectEventRequest {
+  userId: string;
+  sessionId: string;
+  confirmToken: string;
+  candidateIndex: number;
+}
+
+export interface SuggestedSlot {
+  startTime: string;
+  endTime: string;
+}
+
 export interface AgentResponse {
   success: boolean;
   taskId?: string;
   needConfirm?: boolean;
   confirmToken?: string;
   needClarify?: boolean;
+  needEventSelection?: boolean;
   missingFields?: string[];
   replyText: string;
   speakText?: string;

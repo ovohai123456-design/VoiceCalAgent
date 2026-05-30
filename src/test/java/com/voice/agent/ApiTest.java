@@ -1,19 +1,19 @@
 package com.voice.agent;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 
-@SpringBootTest
+@EnabledIfEnvironmentVariable(named = "DASHSCOPE_API_KEY", matches = ".+")
 public class ApiTest {
     @Test
     void api_test(){
         OpenAIClient client = OpenAIOkHttpClient.builder()
-                .apiKey("sk-b136915c79474624afca76922812c82a")
+                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
                 .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
                 .build();
 

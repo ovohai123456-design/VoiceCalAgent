@@ -1,101 +1,81 @@
 <template>
-  <el-card class="status-header" shadow="never">
-    <div class="title-block">
-      <p class="eyebrow">Voice Workflow Console</p>
-      <h1>VoiceCal Agent 语音日历助手</h1>
-    </div>
-
-    <div class="meta-block">
-      <div class="meta-item">
-        <span class="label">当前时间</span>
-        <strong>{{ currentTime }}</strong>
-      </div>
-      <div class="meta-item">
-        <span class="label">运行状态</span>
-        <el-tag :type="tagType" effect="dark" round size="large">{{ statusLabel }}</el-tag>
+  <header class="status-header">
+    <div class="brand">
+      <Calendar class="brand-icon" />
+      <div>
+        <h1>VoiceCal Agent</h1>
+        <span>智能日历工作台</span>
       </div>
     </div>
-  </el-card>
+    <div class="header-meta">
+      <span class="clock">{{ currentTime }}</span>
+      <el-tag :type="tagType" effect="plain">{{ statusLabel }}</el-tag>
+    </div>
+  </header>
 </template>
 
 <script setup lang="ts">
+import { Calendar } from '@element-plus/icons-vue';
 import { computed } from 'vue';
-
 import type { PageStatus } from '@/types/agent';
 
-const props = defineProps<{
-  currentTime: string;
-  status: PageStatus;
-  statusLabel: string;
-}>();
-
-const tagType = computed(() => {
-  const map: Record<PageStatus, 'info' | 'primary' | 'warning' | 'success' | 'danger'> = {
-    IDLE: 'info',
-    LISTENING: 'primary',
-    RECOGNIZED: 'primary',
-    WAITING_RESPONSE: 'warning',
-    WAITING_CONFIRM: 'warning',
-    EXECUTING: 'primary',
-    DONE: 'success',
-    FAILED: 'danger',
-    CANCELLED: 'info',
-  };
-
-  return map[props.status];
-});
+const props = defineProps<{ currentTime: string; status: PageStatus; statusLabel: string }>();
+const tagType = computed(() => ({
+  IDLE: 'info',
+  LISTENING: 'primary',
+  RECOGNIZED: 'primary',
+  WAITING_RESPONSE: 'warning',
+  WAITING_CONFIRM: 'warning',
+  EXECUTING: 'primary',
+  DONE: 'success',
+  FAILED: 'danger',
+  CANCELLED: 'info',
+}[props.status] as 'info' | 'primary' | 'warning' | 'success' | 'danger'));
 </script>
 
 <style scoped>
 .status-header {
-  border: 1px solid rgba(60, 109, 240, 0.14);
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(12, 25, 62, 0.96), rgba(18, 60, 120, 0.92));
-  color: #f5f9ff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  max-width: 1720px;
+  min-height: 64px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #fff;
 }
 
-:deep(.el-card__body) {
+.brand,
+.header-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 24px 28px;
+  gap: 12px;
 }
 
-.eyebrow {
-  margin: 0 0 8px;
-  color: rgba(196, 219, 255, 0.8);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.brand-icon {
+  width: 24px;
+  height: 24px;
+  color: #176b5b;
 }
 
 h1 {
   margin: 0;
-  font-size: 28px;
-  font-weight: 700;
+  color: #182230;
+  font-size: 19px;
 }
 
-.meta-block {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-}
-
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 160px;
-}
-
-.label {
-  color: rgba(196, 219, 255, 0.72);
+.brand span,
+.clock {
+  color: #667085;
   font-size: 13px;
 }
 
-strong {
-  font-size: 18px;
-  font-weight: 600;
+@media (max-width: 560px) {
+  .clock {
+    display: none;
+  }
 }
 </style>

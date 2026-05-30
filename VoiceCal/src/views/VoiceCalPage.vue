@@ -2,44 +2,80 @@
   <div class="voicecal-page">
     <StatusHeader :current-time="currentTime" :status="status" :status-label="statusLabel" />
 
-    <section class="content-grid">
-      <VoiceCommandPanel
-        v-model="commandText"
-        :reply-text="replyText"
-        :status="status"
-        :last-input-type="lastInputType"
-        :show-confirm-actions="showConfirmActions"
-        @manual-input="handleManualInput"
-        @start-voice="handleStartVoice"
-        @stop-voice="handleStopVoice"
-        @submit="handleSubmit"
-        @confirm="handleConfirm"
-        @cancel="handleCancel"
-      />
+    <main class="workspace-grid">
+      <section class="main-column">
+        <VoiceCommandPanel
+          v-model="commandText"
+          :reply-text="replyText"
+          :status="status"
+          :last-input-type="lastInputType"
+          :show-confirm-actions="showConfirmActions"
+          @manual-input="handleManualInput"
+          @start-voice="handleStartVoice"
+          @stop-voice="handleStopVoice"
+          @submit="handleSubmit"
+          @confirm="handleConfirm"
+          @cancel="handleCancel"
+        />
 
-      <CalendarView ref="calendarViewRef" />
-    </section>
+        <ConflictSuggestionPanel
+          v-if="conflictSlots.length"
+          :slots="conflictSlots"
+          :loading-index="selectingSlotIndex"
+          @select="handleSelectSlot"
+          @cancel="handleCancel"
+        />
 
-    <WorkflowTimeline ref="workflowTimelineRef" :task-id="taskId" />
+        <EventCandidatePanel
+          v-if="eventCandidates.length"
+          :candidates="eventCandidates"
+          :loading-index="selectingEventIndex"
+          @select="handleSelectEvent"
+          @cancel="handleCancel"
+        />
+
+        <CalendarView ref="calendarViewRef" @calendar-change="pollReminders" />
+      </section>
+
+      <aside class="side-column">
+        <WorkspaceSidebar
+          :reminders="reminders"
+          :notification-button-text="notificationButtonText"
+          @request-notification="enableBrowserNotifications"
+        />
+        <WorkflowTimeline ref="workflowTimelineRef" :task-id="taskId" />
+      </aside>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElNotification } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { cancelAgent, confirmAgent, executeAgent } from '@/api/agentApi';
+import { cancelAgent, confirmAgent, executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
+import { listReminderTasks, type ReminderTask } from '@/api/reminderApi';
 import CalendarView from '@/components/CalendarView.vue';
+import ConflictSuggestionPanel from '@/components/ConflictSuggestionPanel.vue';
+import EventCandidatePanel from '@/components/EventCandidatePanel.vue';
 import StatusHeader from '@/components/StatusHeader.vue';
 import VoiceCommandPanel from '@/components/VoiceCommandPanel.vue';
 import WorkflowTimeline from '@/components/WorkflowTimeline.vue';
-import type { InputType, PageStatus } from '@/types/agent';
-import { createSpeechRecognition, speak, startRecognition, stopRecognition } from '@/utils/speech';
+import WorkspaceSidebar from '@/components/WorkspaceSidebar.vue';
+import type { AgentResponse, InputType, PageStatus, SuggestedSlot } from '@/types/agent';
+import type { CalendarEventItem } from '@/types/calendar';
+import {
+  getBrowserNotificationPermission,
+  requestBrowserNotificationPermission,
+  showBrowserNotification,
+  type BrowserNotificationPermission,
+} from '@/utils/browserNotification';
 import { DEFAULT_SESSION_ID, DEFAULT_USER_ID, getCurrentTimezone } from '@/utils/session';
+import { createSpeechRecognition, speak, startRecognition, stopRecognition } from '@/utils/speech';
 import { formatCurrentTime } from '@/utils/time';
 
 const commandText = ref('');
-const replyText = ref('');
+const replyText = ref('等待输入日程指令。');
 const status = ref<PageStatus>('IDLE');
 const currentTime = ref(formatCurrentTime());
 const confirmToken = ref('');
@@ -48,37 +84,53 @@ const lastInputType = ref<InputType>('TEXT');
 const speechRecognition = ref<SpeechRecognition | null>(null);
 const calendarViewRef = ref<InstanceType<typeof CalendarView> | null>(null);
 const workflowTimelineRef = ref<InstanceType<typeof WorkflowTimeline> | null>(null);
+const conflictSlots = ref<SuggestedSlot[]>([]);
+const selectingSlotIndex = ref<number | null>(null);
+const eventCandidates = ref<CalendarEventItem[]>([]);
+const selectingEventIndex = ref<number | null>(null);
+const reminders = ref<ReminderTask[]>([]);
+const browserNotificationPermission = ref<BrowserNotificationPermission>(getBrowserNotificationPermission());
+const notifiedReminderIds = new Set<number>();
 
 let timerId: number | null = null;
+let reminderTimerId: number | null = null;
+let reminderPollingInitialized = false;
 
-const statusLabel = computed(() => {
-  const labelMap: Record<PageStatus, string> = {
-    IDLE: '空闲中',
-    LISTENING: '正在识别',
-    RECOGNIZED: '已识别',
-    WAITING_RESPONSE: '等待响应',
-    WAITING_CONFIRM: '等待确认',
-    EXECUTING: '执行中',
-    DONE: '已完成',
-    FAILED: '失败',
-    CANCELLED: '已取消',
-  };
+const statusLabel = computed(() => ({
+  IDLE: '空闲',
+  LISTENING: '正在识别',
+  RECOGNIZED: '已识别',
+  WAITING_RESPONSE: '正在分析',
+  WAITING_CONFIRM: '等待确认',
+  EXECUTING: '执行中',
+  DONE: '已完成',
+  FAILED: '失败',
+  CANCELLED: '已取消',
+}[status.value]));
 
-  return labelMap[status.value];
+const showConfirmActions = computed(
+  () => status.value === 'WAITING_CONFIRM'
+    && Boolean(confirmToken.value)
+    && !conflictSlots.value.length
+    && !eventCandidates.value.length,
+);
+
+const notificationButtonText = computed(() => {
+  if (browserNotificationPermission.value === 'granted') return '系统通知已开启';
+  if (browserNotificationPermission.value === 'denied') return '系统通知已拒绝';
+  if (browserNotificationPermission.value === 'unsupported') return '浏览器不支持系统通知';
+  return '系统通知未开启';
 });
 
-const showConfirmActions = computed(() => status.value === 'WAITING_CONFIRM' && Boolean(confirmToken.value));
-
 onMounted(() => {
-  timerId = window.setInterval(() => {
-    currentTime.value = formatCurrentTime();
-  }, 1000);
+  timerId = window.setInterval(() => { currentTime.value = formatCurrentTime(); }, 1000);
+  void pollReminders();
+  reminderTimerId = window.setInterval(() => { void pollReminders(); }, 15_000);
 });
 
 onBeforeUnmount(() => {
-  if (timerId !== null) {
-    window.clearInterval(timerId);
-  }
+  if (timerId !== null) window.clearInterval(timerId);
+  if (reminderTimerId !== null) window.clearInterval(reminderTimerId);
   stopRecognition(speechRecognition.value);
 });
 
@@ -86,161 +138,172 @@ function handleManualInput(): void {
   lastInputType.value = 'TEXT';
 }
 
-function ensureRecognition(): SpeechRecognition | null {
-  if (speechRecognition.value) {
-    return speechRecognition.value;
-  }
-
-  const recognition = createSpeechRecognition({
-    lang: 'zh-CN',
-    continuous: false,
-    interimResults: false,
-  });
-
-  speechRecognition.value = recognition;
-  return recognition;
-}
-
 function handleStartVoice(): void {
-  const recognition = ensureRecognition();
+  const recognition = speechRecognition.value ?? createSpeechRecognition({ lang: 'zh-CN', continuous: false, interimResults: false });
   if (!recognition) {
-    ElMessage.warning('当前浏览器不支持语音识别，请使用 Chrome 或 Edge，或者手动输入。');
+    ElMessage.warning('当前浏览器不支持语音识别，请使用 Chrome、Edge 或文本输入。');
     return;
   }
-
+  speechRecognition.value = recognition;
+  const waitingForConfirmation = status.value === 'WAITING_CONFIRM';
   recognition.onresult = (event: SpeechRecognitionEvent) => {
-    const transcript = Array.from({ length: event.results.length }, (_, index) => event.results[index][0].transcript)
-      .join('')
-      .trim();
-
+    const transcript = Array.from({ length: event.results.length }, (_, index) => event.results[index][0].transcript).join('').trim();
+    if (waitingForConfirmation) {
+      if (conflictSlots.value.length || eventCandidates.value.length) {
+        ElMessage.warning('请在页面中选择一个候选项。');
+      } else if (isConfirmSpeech(transcript)) {
+        void handleConfirm();
+      } else if (isCancelSpeech(transcript)) {
+        void handleCancel();
+      } else {
+        ElMessage.warning('请说“确认”或“取消”。');
+      }
+      status.value = 'WAITING_CONFIRM';
+      return;
+    }
     commandText.value = transcript;
     lastInputType.value = 'VOICE';
     status.value = 'RECOGNIZED';
   };
-
   recognition.onerror = () => {
     status.value = 'FAILED';
-    ElMessage.error('语音识别失败，请重试或手动输入。');
+    ElMessage.error('语音识别失败，请重试或改用文本输入。');
   };
-
   recognition.onend = () => {
-    if (status.value === 'LISTENING') {
-      status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
-    }
+    if (status.value === 'LISTENING') status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
   };
-
-  try {
-    status.value = 'LISTENING';
-    startRecognition(recognition);
-  } catch (error) {
-    console.error(error);
-    status.value = 'FAILED';
-    ElMessage.error('语音识别失败，请重试或手动输入。');
-  }
+  status.value = 'LISTENING';
+  startRecognition(recognition);
 }
 
 function handleStopVoice(): void {
   stopRecognition(speechRecognition.value);
-  if (status.value === 'LISTENING') {
-    status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
-  }
+  if (status.value === 'LISTENING') status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
+}
+
+function isConfirmSpeech(text: string): boolean {
+  return ['确认', '确定', '好的', '可以', '执行'].some((keyword) => text.includes(keyword));
+}
+
+function isCancelSpeech(text: string): boolean {
+  return ['取消', '不要', '算了', '停止'].some((keyword) => text.includes(keyword));
 }
 
 async function handleSubmit(): Promise<void> {
   const text = commandText.value.trim();
   if (!text) {
-    ElMessage.warning('请输入或说出日程指令');
+    ElMessage.warning('请输入或说出日程指令。');
     return;
   }
-
   status.value = 'WAITING_RESPONSE';
-
   try {
-    const response = await executeAgent({
+    await applyAgentResponse(await executeAgent({
       userId: DEFAULT_USER_ID,
       sessionId: DEFAULT_SESSION_ID,
       inputType: lastInputType.value,
       text,
       timezone: getCurrentTimezone(),
       currentTime: formatCurrentTime(),
-    });
-
-    taskId.value = response.taskId ?? taskId.value;
-    confirmToken.value = response.confirmToken ?? '';
-    replyText.value = response.replyText;
-
-    await speak(response.speakText || response.replyText);
-
-    if (response.needConfirm) {
-      status.value = 'WAITING_CONFIRM';
-    } else {
-      status.value = 'DONE';
-      await refreshCalendar();
-    }
-
-    await refreshTimeline();
+    }));
   } catch (error) {
-    console.error(error);
-    status.value = 'FAILED';
-    ElMessage.error('系统请求失败，请稍后重试。');
+    handleRequestError(error);
   }
 }
 
 async function handleConfirm(): Promise<void> {
-  if (!confirmToken.value) {
-    ElMessage.warning('当前没有待确认操作。');
-    return;
-  }
-
+  if (!confirmToken.value) return;
   status.value = 'EXECUTING';
-
   try {
-    const response = await confirmAgent({
+    await applyAgentResponse(await confirmAgent({
       userId: DEFAULT_USER_ID,
       sessionId: DEFAULT_SESSION_ID,
       confirmToken: confirmToken.value,
-    });
-
-    taskId.value = response.taskId ?? taskId.value;
-    replyText.value = response.replyText;
-    confirmToken.value = response.confirmToken ?? '';
-
-    await speak(response.speakText || response.replyText);
-
-    status.value = response.needConfirm ? 'WAITING_CONFIRM' : 'DONE';
-    await refreshCalendar();
-    await refreshTimeline();
+    }));
   } catch (error) {
-    console.error(error);
-    status.value = 'FAILED';
-    ElMessage.error('系统请求失败，请稍后重试。');
+    handleRequestError(error);
   }
 }
 
 async function handleCancel(): Promise<void> {
-  if (!confirmToken.value) {
-    ElMessage.warning('当前没有待确认操作。');
-    return;
-  }
-
+  if (!confirmToken.value) return;
   try {
-    const response = await cancelAgent({
-      userId: DEFAULT_USER_ID,
-      sessionId: DEFAULT_SESSION_ID,
-      confirmToken: confirmToken.value,
-    });
-
-    replyText.value = response.replyText || '已取消本次操作。';
-    confirmToken.value = '';
+    const response = await cancelAgent({ userId: DEFAULT_USER_ID, sessionId: DEFAULT_SESSION_ID, confirmToken: confirmToken.value });
+    replyText.value = response.replyText || '本次操作已取消。';
+    clearPendingSelection();
     status.value = 'CANCELLED';
-
     await speak(response.speakText || replyText.value);
     await refreshTimeline();
   } catch (error) {
-    console.error(error);
-    status.value = 'FAILED';
-    ElMessage.error('系统请求失败，请稍后重试。');
+    handleRequestError(error);
   }
+}
+
+async function handleSelectSlot(slotIndex: number): Promise<void> {
+  if (!confirmToken.value) return;
+  selectingSlotIndex.value = slotIndex;
+  try {
+    await applyAgentResponse(await selectAgentSlot({
+      userId: DEFAULT_USER_ID,
+      sessionId: DEFAULT_SESSION_ID,
+      confirmToken: confirmToken.value,
+      slotIndex,
+    }));
+  } catch (error) {
+    handleRequestError(error);
+  } finally {
+    selectingSlotIndex.value = null;
+  }
+}
+
+async function handleSelectEvent(candidateIndex: number): Promise<void> {
+  if (!confirmToken.value) return;
+  selectingEventIndex.value = candidateIndex;
+  try {
+    await applyAgentResponse(await selectAgentEvent({
+      userId: DEFAULT_USER_ID,
+      sessionId: DEFAULT_SESSION_ID,
+      confirmToken: confirmToken.value,
+      candidateIndex,
+    }));
+  } catch (error) {
+    handleRequestError(error);
+  } finally {
+    selectingEventIndex.value = null;
+  }
+}
+
+async function applyAgentResponse(response: AgentResponse): Promise<void> {
+  taskId.value = response.taskId ?? taskId.value;
+  confirmToken.value = response.confirmToken ?? '';
+  replyText.value = response.replyText;
+  conflictSlots.value = extractSuggestedSlots(response);
+  eventCandidates.value = extractEventCandidates(response);
+  await speak(response.speakText || response.replyText);
+  if (response.needConfirm || response.needEventSelection) status.value = 'WAITING_CONFIRM';
+  else if (response.needClarify) status.value = 'RECOGNIZED';
+  else status.value = 'DONE';
+  if (status.value === 'DONE') {
+    clearPendingSelection();
+    await refreshCalendar();
+    await pollReminders();
+  }
+  await refreshTimeline();
+}
+
+function clearPendingSelection(): void {
+  confirmToken.value = '';
+  conflictSlots.value = [];
+  eventCandidates.value = [];
+}
+
+function extractSuggestedSlots(response: AgentResponse): SuggestedSlot[] {
+  const data = response.data as { conflictResult?: { suggestedSlots?: SuggestedSlot[] } } | undefined;
+  return data?.conflictResult?.suggestedSlots ?? [];
+}
+
+function extractEventCandidates(response: AgentResponse): CalendarEventItem[] {
+  const data = response.data as { candidates?: CalendarEventItem[] } | undefined;
+  return response.needEventSelection ? data?.candidates ?? [] : [];
 }
 
 async function refreshCalendar(): Promise<void> {
@@ -250,26 +313,77 @@ async function refreshCalendar(): Promise<void> {
 async function refreshTimeline(): Promise<void> {
   await workflowTimelineRef.value?.refresh();
 }
+
+async function pollReminders(): Promise<void> {
+  try {
+    const tasks = await listReminderTasks(DEFAULT_USER_ID);
+    reminders.value = tasks;
+    const executed = tasks.filter((reminder) => reminder.status === 'EXECUTED');
+    if (!reminderPollingInitialized) {
+      executed.forEach((reminder) => notifiedReminderIds.add(reminder.id));
+      reminderPollingInitialized = true;
+      return;
+    }
+    for (const reminder of executed) {
+      if (notifiedReminderIds.has(reminder.id)) continue;
+      notifiedReminderIds.add(reminder.id);
+      const title = resolveReminderTitle(reminder);
+      ElNotification({ title: '日程提醒', message: title, type: 'warning', duration: 0 });
+      showBrowserNotification('日程提醒', title);
+      await speak(`日程提醒：${title}`);
+    }
+  } catch (error) {
+    console.error('Reminder polling failed', error);
+  }
+}
+
+async function enableBrowserNotifications(): Promise<void> {
+  browserNotificationPermission.value = await requestBrowserNotificationPermission();
+  if (browserNotificationPermission.value === 'granted') ElMessage.success('系统通知已开启');
+  else ElMessage.warning('系统通知未开启，请检查浏览器站点权限。');
+}
+
+function resolveReminderTitle(reminder: ReminderTask): string {
+  if (!reminder.jobPayloadJson) return `日程 ${reminder.eventId} 即将开始`;
+  try {
+    const payload = JSON.parse(reminder.jobPayloadJson) as { title?: string };
+    return payload.title ? `${payload.title} 即将开始` : `日程 ${reminder.eventId} 即将开始`;
+  } catch {
+    return `日程 ${reminder.eventId} 即将开始`;
+  }
+}
+
+function handleRequestError(error: unknown): void {
+  console.error(error);
+  status.value = 'FAILED';
+  ElMessage.error(error instanceof Error ? error.message : '系统请求失败，请稍后重试。');
+}
 </script>
 
 <style scoped>
 .voicecal-page {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   min-height: 100vh;
-  padding: 24px;
+  padding: 16px;
 }
 
-.content-grid {
+.workspace-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 35fr) minmax(480px, 65fr);
-  gap: 20px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
+  max-width: 1720px;
+  margin: 14px auto 0;
 }
 
-@media (max-width: 1100px) {
-  .content-grid {
+.main-column,
+.side-column {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .workspace-grid {
     grid-template-columns: 1fr;
   }
 }

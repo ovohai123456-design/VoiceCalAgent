@@ -9,7 +9,7 @@ export interface ApiResponseEnvelope<T> {
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '',
-  timeout: 15000,
+  timeout: Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 60000),
 });
 
 export function unwrapApiResponse<T>(payload: ApiResponseEnvelope<T> | T): T {

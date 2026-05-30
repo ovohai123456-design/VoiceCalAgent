@@ -8,6 +8,8 @@
 可用意图 intent：
 - CREATE_EVENT：创建日程、安排事项、设置提醒
 - QUERY_EVENT：查询日程、查看安排
+- UPDATE_EVENT：修改已有日程
+- DELETE_EVENT：删除或取消已有日程
 - UNKNOWN：无法理解
 
 可用 Agent：
@@ -21,13 +23,17 @@
 5. 不要编造联系人、电话、邮箱、会议链接。
 6. 创建、修改、删除类任务 needConfirm=true。
 7. 查询类任务 needConfirm=false。
-8. 当前版本只支持 CREATE_EVENT 和 QUERY_EVENT，其他任务输出 UNKNOWN。
+8. 修改、删除时，targetTitle 和目标时间用于定位已有日程；newStartTime 和 newEndTime 只用于修改后的新时间。
+9. For recurring create requests, set recurrenceType to DAILY, WEEKLY, or MONTHLY. Set recurrenceInterval when the user specifies every N days/weeks/months. Set recurrenceCount or recurrenceUntil only when explicitly provided.
+10. For an online meeting request, set onlineMeeting=true. Do not invent meetingUrl; the backend tool will create it.
+11. For an SMS reminder request, extract the named receiver into smsReceiver and the optional message into smsContent. Do not invent a receiver.
+12. For an email reminder request, extract the email address into emailReceiver and optional message into emailContent. Do not invent an email address.
 
 JSON 格式：
 {
-  "intent": "CREATE_EVENT | QUERY_EVENT | UNKNOWN",
+  "intent": "CREATE_EVENT | QUERY_EVENT | UPDATE_EVENT | DELETE_EVENT | UNKNOWN",
   "targetAgent": "CalendarAgent",
-  "actionType": "CREATE_EVENT | QUERY_EVENT",
+  "actionType": "CREATE_EVENT | QUERY_EVENT | UPDATE_EVENT | DELETE_EVENT",
   "needConfirm": true,
   "slots": {
     "title": "组会",
@@ -39,7 +45,21 @@ JSON 格式：
     "reminderMinutes": 10,
     "queryStartTime": "yyyy-MM-dd HH:mm:ss",
     "queryEndTime": "yyyy-MM-dd HH:mm:ss",
-    "keyword": ""
+    "keyword": "",
+    "targetTitle": "",
+    "targetStartTime": "yyyy-MM-dd HH:mm:ss",
+    "targetEndTime": "yyyy-MM-dd HH:mm:ss",
+    "newStartTime": "yyyy-MM-dd HH:mm:ss",
+    "newEndTime": "yyyy-MM-dd HH:mm:ss",
+    "recurrenceType": "DAILY | WEEKLY | MONTHLY",
+    "recurrenceInterval": 1,
+    "recurrenceCount": 12,
+    "recurrenceUntil": "yyyy-MM-dd",
+    "onlineMeeting": false,
+    "smsReceiver": "",
+    "smsContent": "",
+    "emailReceiver": "",
+    "emailContent": ""
   },
   "missingFields": [],
   "steps": [

@@ -4,6 +4,8 @@ import type {
   AgentConfirmRequest,
   AgentExecuteRequest,
   AgentResponse,
+  AgentSelectSlotRequest,
+  AgentSelectEventRequest,
   WorkflowStep,
 } from '@/types/agent';
 
@@ -75,6 +77,22 @@ export async function cancelAgent(request: AgentCancelRequest): Promise<AgentRes
 
   const { data } = await http.post<AgentResponse | { data: AgentResponse; success: boolean; message?: string }>(
     '/api/agent/cancel',
+    request,
+  );
+  return unwrapApiResponse<AgentResponse>(data);
+}
+
+export async function selectAgentSlot(request: AgentSelectSlotRequest): Promise<AgentResponse> {
+  const { data } = await http.post<AgentResponse | { data: AgentResponse; success: boolean; message?: string }>(
+    '/api/agent/select-slot',
+    request,
+  );
+  return unwrapApiResponse<AgentResponse>(data);
+}
+
+export async function selectAgentEvent(request: AgentSelectEventRequest): Promise<AgentResponse> {
+  const { data } = await http.post<AgentResponse | { data: AgentResponse; success: boolean; message?: string }>(
+    '/api/agent/select-event',
     request,
   );
   return unwrapApiResponse<AgentResponse>(data);

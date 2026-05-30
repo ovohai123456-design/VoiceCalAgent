@@ -11,6 +11,8 @@ export interface CalendarEventItem {
   reminderMinutes?: number;
   source?: string;
   status?: string;
+  recurrenceSeriesId?: string;
+  recurrenceIndex?: number;
 }
 
 export interface CalendarQueryParams {
@@ -19,4 +21,15 @@ export interface CalendarQueryParams {
   endTime: string;
   keyword?: string;
   status?: string;
+}
+
+export interface CalendarEventUpdateRequest {
+  userId: string;
+  title?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  description?: string;
+  meetingUrl?: string;
+  reminderMinutes?: number;
 }

@@ -7,20 +7,27 @@ import com.voice.agent.llm.LlmJsonExtractor;
 import com.voice.agent.llm.PromptTemplateService;
 import com.voice.agent.model.dto.AgentExecuteRequest;
 import com.voice.agent.model.dto.CreateEventRequest;
+import com.voice.agent.model.dto.EventResolveRequest;
 import com.voice.agent.model.dto.QueryEventRequest;
 import com.voice.agent.model.dto.RouterPlanResponse;
 import com.voice.agent.model.dto.RouterPlanStepDTO;
 import com.voice.agent.model.dto.RouterSlots;
+import com.voice.agent.model.dto.UpdateEventRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * LLM 版路由智能体。
@@ -30,7 +37,11 @@ import java.util.Map;
 @Component
 public class LlmRouterAgent {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final String ROUTER_PROMPT = "prompts/router-agent-prompt.md";
+    private static final Pattern SMS_RECEIVER_PATTERN = Pattern.compile(
+            "(?:短信提醒|发短信给)([\\u4e00-\\u9fa5A-Za-z0-9_]{1,20})"
+    );
 
     private final LlmClient llmClient;
     private final LlmJsonExtractor jsonExtractor;
@@ -95,7 +106,7 @@ public class LlmRouterAgent {
                 : AgentConstants.TARGET_CALENDAR_AGENT);
         plan.setActionType(response.getActionType());
         plan.setNeedConfirm(Boolean.TRUE.equals(response.getNeedConfirm()));
-        plan.setMissingFields(copyList(response.getMissingFields()));
+        plan.setMissingFields(normalizeMissingFields(response.getMissingFields()));
         plan.setSteps(convertSteps(response.getSteps(), response.getIntent()));
 
         RouterSlots slots = response.getSlots() == null ? new RouterSlots() : response.getSlots();
@@ -103,6 +114,10 @@ public class LlmRouterAgent {
             fillCreatePlan(plan, slots, request);
         } else if (AgentConstants.INTENT_QUERY_EVENT.equals(response.getIntent())) {
             fillQueryPlan(plan, slots, request);
+        } else if (AgentConstants.INTENT_UPDATE_EVENT.equals(response.getIntent())) {
+            fillUpdatePlan(plan, slots, request);
+        } else if (AgentConstants.INTENT_DELETE_EVENT.equals(response.getIntent())) {
+            fillDeletePlan(plan, slots, request);
         } else {
             plan.setIntent(AgentConstants.INTENT_UNKNOWN);
             if (plan.getMissingFields().isEmpty()) {
@@ -116,8 +131,8 @@ public class LlmRouterAgent {
         plan.setActionType(AgentConstants.ACTION_CREATE_EVENT);
         plan.setNeedConfirm(true);
 
-        LocalDateTime startTime = parseDateTime(slots.getStartTime());
-        LocalDateTime endTime = defaultValueResolver.resolveEndTime(startTime, parseDateTime(slots.getEndTime()));
+        LocalDateTime startTime = normalizeRelativeDate(parseDateTime(slots.getStartTime()), request);
+        LocalDateTime endTime = normalizeRelativeDate(parseDateTime(slots.getEndTime()), request);
 
         CreateEventRequest createRequest = new CreateEventRequest();
         createRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
@@ -127,8 +142,17 @@ public class LlmRouterAgent {
         createRequest.setLocation(trimToNull(slots.getLocation()));
         createRequest.setDescription(trimToNull(slots.getDescription()));
         createRequest.setMeetingUrl(trimToNull(slots.getMeetingUrl()));
-        createRequest.setReminderMinutes(defaultValueResolver.resolveReminderMinutes(slots.getReminderMinutes()));
+        createRequest.setReminderMinutes(slots.getReminderMinutes());
         createRequest.setSource("AGENT");
+        createRequest.setRecurrenceType(trimToNull(slots.getRecurrenceType()));
+        createRequest.setRecurrenceInterval(slots.getRecurrenceInterval());
+        createRequest.setRecurrenceCount(slots.getRecurrenceCount());
+        createRequest.setRecurrenceUntil(parseDate(slots.getRecurrenceUntil()));
+        createRequest.setOnlineMeeting(Boolean.TRUE.equals(slots.getOnlineMeeting()) || containsOnlineMeetingIntent(request.getText()));
+        createRequest.setSmsReceiver(resolveSmsReceiver(slots.getSmsReceiver(), request.getText()));
+        createRequest.setSmsContent(trimToNull(slots.getSmsContent()));
+        createRequest.setEmailReceiver(trimToNull(slots.getEmailReceiver()));
+        createRequest.setEmailContent(trimToNull(slots.getEmailContent()));
         plan.setCreateEventRequest(createRequest);
 
         if (!StringUtils.hasText(createRequest.getTitle()) && !plan.getMissingFields().contains("title")) {
@@ -146,8 +170,8 @@ public class LlmRouterAgent {
 
         QueryEventRequest queryRequest = new QueryEventRequest();
         queryRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
-        queryRequest.setStartTime(parseDateTime(slots.getQueryStartTime()));
-        queryRequest.setEndTime(parseDateTime(slots.getQueryEndTime()));
+        queryRequest.setStartTime(normalizeRelativeDate(parseDateTime(slots.getQueryStartTime()), request));
+        queryRequest.setEndTime(normalizeRelativeDate(parseDateTime(slots.getQueryEndTime()), request));
         queryRequest.setKeyword(trimToNull(slots.getKeyword()));
         plan.setQueryEventRequest(queryRequest);
 
@@ -158,6 +182,52 @@ public class LlmRouterAgent {
             plan.getMissingFields().add("end_time");
         }
         ensureQuerySteps(plan);
+    }
+
+    private void fillUpdatePlan(AgentPlan plan, RouterSlots slots, AgentExecuteRequest request) {
+        plan.setActionType(AgentConstants.ACTION_UPDATE_EVENT);
+        plan.setNeedConfirm(true);
+        plan.setEventResolveRequest(buildResolveRequest(slots, request));
+
+        LocalDateTime newStart = normalizeRelativeDate(parseDateTime(slots.getNewStartTime()), request);
+        UpdateEventRequest updateRequest = new UpdateEventRequest();
+        updateRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
+        updateRequest.setStartTime(newStart);
+        updateRequest.setEndTime(defaultValueResolver.resolveEndTime(
+                newStart,
+                normalizeRelativeDate(parseDateTime(slots.getNewEndTime()), request)
+        ));
+        plan.setUpdateEventRequest(updateRequest);
+
+        ensureResolveTitle(plan);
+        if (newStart == null && !plan.getMissingFields().contains("start_time")) {
+            plan.getMissingFields().add("start_time");
+        }
+        ensureMutationSteps(plan, "UPDATE_EVENT", "calendar.update");
+    }
+
+    private void fillDeletePlan(AgentPlan plan, RouterSlots slots, AgentExecuteRequest request) {
+        plan.setActionType(AgentConstants.ACTION_DELETE_EVENT);
+        plan.setNeedConfirm(true);
+        plan.setEventResolveRequest(buildResolveRequest(slots, request));
+        ensureResolveTitle(plan);
+        ensureMutationSteps(plan, "DELETE_EVENT", "calendar.delete");
+    }
+
+    private EventResolveRequest buildResolveRequest(RouterSlots slots, AgentExecuteRequest request) {
+        EventResolveRequest resolveRequest = new EventResolveRequest();
+        resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
+        resolveRequest.setTitleKeyword(trimToNull(slots.getTargetTitle()));
+        resolveRequest.setRangeStart(normalizeRelativeDate(parseDateTime(slots.getTargetStartTime()), request));
+        resolveRequest.setRangeEnd(normalizeRelativeDate(parseDateTime(slots.getTargetEndTime()), request));
+        return resolveRequest;
+    }
+
+    private void ensureResolveTitle(AgentPlan plan) {
+        if (!StringUtils.hasText(plan.getEventResolveRequest().getTitleKeyword())
+                && !plan.getMissingFields().contains("title")) {
+            plan.getMissingFields().add("title");
+        }
     }
 
     private List<AgentPlanStep> convertSteps(List<RouterPlanStepDTO> input, String intent) {
@@ -182,6 +252,12 @@ public class LlmRouterAgent {
                 steps.add(AgentPlanStep.of(3, "CalendarAgent", "CREATE_EVENT", "calendar.create"));
             } else if (AgentConstants.INTENT_QUERY_EVENT.equals(intent)) {
                 steps.add(AgentPlanStep.of(2, "CalendarAgent", "QUERY_EVENT", "calendar.query"));
+            } else if (AgentConstants.INTENT_UPDATE_EVENT.equals(intent)) {
+                steps.add(AgentPlanStep.of(2, "CalendarAgent", "RESOLVE_EVENT", "calendar.event.resolve"));
+                steps.add(AgentPlanStep.of(3, "CalendarAgent", "UPDATE_EVENT", "calendar.update"));
+            } else if (AgentConstants.INTENT_DELETE_EVENT.equals(intent)) {
+                steps.add(AgentPlanStep.of(2, "CalendarAgent", "RESOLVE_EVENT", "calendar.event.resolve"));
+                steps.add(AgentPlanStep.of(3, "CalendarAgent", "DELETE_EVENT", "calendar.delete"));
             }
         }
         return steps;
@@ -200,6 +276,13 @@ public class LlmRouterAgent {
         }
     }
 
+    private void ensureMutationSteps(AgentPlan plan, String action, String skillId) {
+        if (plan.getSteps().stream().noneMatch(step -> action.equals(step.getAction()))) {
+            plan.getSteps().add(AgentPlanStep.of(2, "CalendarAgent", "RESOLVE_EVENT", "calendar.event.resolve"));
+            plan.getSteps().add(AgentPlanStep.of(3, "CalendarAgent", action, skillId));
+        }
+    }
+
     private LocalDateTime parseDateTime(String value) {
         if (!StringUtils.hasText(value)) {
             return null;
@@ -213,5 +296,74 @@ public class LlmRouterAgent {
 
     private List<String> copyList(List<String> input) {
         return input == null ? new ArrayList<>() : new ArrayList<>(input);
+    }
+
+    private LocalDateTime normalizeRelativeDate(LocalDateTime value, AgentExecuteRequest request) {
+        if (value == null || request == null || !StringUtils.hasText(request.getText())) {
+            return value;
+        }
+        LocalDate expectedDate = null;
+        LocalDate currentDate = parseCurrentTime(request.getCurrentTime()).toLocalDate();
+        if (request.getText().contains("后天")) {
+            expectedDate = currentDate.plusDays(2);
+        } else if (request.getText().contains("明天")) {
+            expectedDate = currentDate.plusDays(1);
+        }
+        return expectedDate == null ? value : LocalDateTime.of(expectedDate, value.toLocalTime());
+    }
+
+    private LocalDateTime parseCurrentTime(String value) {
+        return StringUtils.hasText(value)
+                ? LocalDateTime.parse(value.trim(), DATE_TIME_FORMATTER)
+                : LocalDateTime.now();
+    }
+
+    private LocalDate parseDate(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return LocalDate.parse(value.trim(), DATE_FORMATTER);
+    }
+
+    private List<String> normalizeMissingFields(List<String> input) {
+        Set<String> normalized = new LinkedHashSet<>();
+        for (String field : copyList(input)) {
+            if (!StringUtils.hasText(field)) {
+                continue;
+            }
+            String trimmed = field.trim();
+            if ("startTime".equals(trimmed)
+                    || "newStartTime".equals(trimmed)
+                    || "queryStartTime".equals(trimmed)
+                    || "targetStartTime".equals(trimmed)) {
+                normalized.add("start_time");
+            } else if ("endTime".equals(trimmed)
+                    || "newEndTime".equals(trimmed)
+                    || "queryEndTime".equals(trimmed)
+                    || "targetEndTime".equals(trimmed)) {
+                normalized.add("end_time");
+            } else if ("targetTitle".equals(trimmed)) {
+                normalized.add("title");
+            } else {
+                normalized.add(trimmed);
+            }
+        }
+        return new ArrayList<>(normalized);
+    }
+
+    private boolean containsOnlineMeetingIntent(String text) {
+        return StringUtils.hasText(text)
+                && ((text.contains("线上") && text.contains("会")) || text.contains("会议链接"));
+    }
+
+    private String resolveSmsReceiver(String slotValue, String text) {
+        if (StringUtils.hasText(slotValue)) {
+            return slotValue.trim();
+        }
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        Matcher matcher = SMS_RECEIVER_PATTERN.matcher(text);
+        return matcher.find() ? matcher.group(1) : null;
     }
 }

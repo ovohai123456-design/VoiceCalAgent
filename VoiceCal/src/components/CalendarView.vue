@@ -1,119 +1,166 @@
 <template>
-  <el-card class="calendar-panel" shadow="never">
-    <template #header>
-      <div class="panel-header">
-        <div>
-          <h2>日历视图面板</h2>
-          <p>支持月、周、日三种视图，并随任务执行刷新</p>
-        </div>
-        <el-button plain @click="refresh">刷新日历</el-button>
+  <section class="calendar-panel">
+    <div class="panel-heading">
+      <div>
+        <h2>日历</h2>
+        <span>点击日程可查看、编辑或删除</span>
       </div>
-    </template>
-
-    <el-skeleton :loading="loading" animated :rows="10">
+      <el-button :icon="Refresh" circle plain title="刷新日历" @click="refresh" />
+    </div>
+    <div v-loading="loading" class="calendar-body">
       <FullCalendar ref="calendarRef" :options="calendarOptions" />
-    </el-skeleton>
-  </el-card>
+    </div>
+  </section>
 
   <el-dialog v-model="detailVisible" title="日程详情" width="480px">
-    <template v-if="selectedEvent">
-      <div class="detail-item">
-        <span>标题</span>
-        <strong>{{ selectedEvent.title }}</strong>
-      </div>
-      <div class="detail-item">
-        <span>时间</span>
-        <strong>{{ selectedEvent.startTime }} - {{ selectedEvent.endTime }}</strong>
-      </div>
-      <div class="detail-item">
-        <span>地点</span>
-        <strong>{{ selectedEvent.location || '未填写' }}</strong>
-      </div>
-      <div class="detail-item">
-        <span>描述</span>
-        <strong>{{ selectedEvent.description || '未填写' }}</strong>
-      </div>
+    <div v-if="selectedEvent" class="detail-list">
+      <div><span>标题</span><strong>{{ selectedEvent.title }}</strong></div>
+      <div><span>开始</span><strong>{{ selectedEvent.startTime }}</strong></div>
+      <div><span>结束</span><strong>{{ selectedEvent.endTime }}</strong></div>
+      <div><span>地点</span><strong>{{ selectedEvent.location || '未设置' }}</strong></div>
+      <div><span>描述</span><strong>{{ selectedEvent.description || '未设置' }}</strong></div>
+    </div>
+    <template #footer>
+      <el-button :icon="Edit" @click="openEdit">编辑</el-button>
+      <el-button :icon="Delete" type="danger" plain @click="removeSelectedEvent">删除</el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog v-model="editVisible" title="编辑日程" width="520px">
+    <el-form label-position="top">
+      <el-form-item label="标题"><el-input v-model="editForm.title" /></el-form-item>
+      <el-form-item label="开始时间"><el-input v-model="editForm.startTime" placeholder="yyyy-MM-dd HH:mm:ss" /></el-form-item>
+      <el-form-item label="结束时间"><el-input v-model="editForm.endTime" placeholder="yyyy-MM-dd HH:mm:ss" /></el-form-item>
+      <el-form-item label="地点"><el-input v-model="editForm.location" /></el-form-item>
+      <el-form-item label="描述"><el-input v-model="editForm.description" type="textarea" :rows="3" /></el-form-item>
+      <el-form-item label="提前提醒">
+        <el-input-number v-model="editForm.reminderMinutes" :min="0" :max="1440" />
+        <span class="unit">分钟</span>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editVisible = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="saveEdit">保存</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
+import type { CalendarOptions, EventClickArg } from '@fullcalendar/core';
+import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { CalendarOptions, DatesSetArg, EventClickArg, EventInput } from '@fullcalendar/core';
-import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import FullCalendar from '@fullcalendar/vue3';
-import { ElMessage } from 'element-plus';
-import { computed, ref } from 'vue';
+import { Delete, Edit, Refresh } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { ref } from 'vue';
 
-import { getCalendarEvents, mapCalendarEventToFullCalendar } from '@/api/calendarApi';
+import { deleteCalendarEvent, getCalendarEvents, mapCalendarEventToFullCalendar, updateCalendarEvent } from '@/api/calendarApi';
 import type { CalendarEventItem } from '@/types/calendar';
 import { DEFAULT_USER_ID } from '@/utils/session';
 import { formatCurrentTime } from '@/utils/time';
 
+const emit = defineEmits<{ (event: 'calendar-change'): void }>();
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null);
 const loading = ref(false);
-const events = ref<EventInput[]>([]);
-const selectedEvent = ref<CalendarEventItem | null>(null);
+const saving = ref(false);
 const detailVisible = ref(false);
-const currentRange = ref<{ start: Date; end: Date } | null>(null);
+const editVisible = ref(false);
+const selectedEvent = ref<CalendarEventItem | null>(null);
+const editForm = ref({ title: '', startTime: '', endTime: '', location: '', description: '', reminderMinutes: 10 });
 
-const calendarOptions = computed<CalendarOptions>(() => ({
+const calendarOptions: CalendarOptions = {
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
   locale: zhCnLocale,
   initialView: 'dayGridMonth',
-  headerToolbar: {
-    left: 'prev,next today',
-    center: 'title',
-    right: 'dayGridMonth,timeGridWeek,timeGridDay',
-  },
-  buttonText: {
-    today: '今天',
-    month: '月视图',
-    week: '周视图',
-    day: '日视图',
-  },
-  height: 700,
+  headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
+  buttonText: { today: '今天', month: '月', week: '周', day: '日' },
+  height: 690,
   dayMaxEvents: true,
-  events: events.value,
-  datesSet: (arg: DatesSetArg) => {
-    currentRange.value = { start: arg.start, end: arg.end };
-    void loadEvents(arg.start, arg.end);
+  events: async (info, successCallback, failureCallback) => {
+    loading.value = true;
+    try {
+      const events = await getCalendarEvents({
+        userId: DEFAULT_USER_ID,
+        startTime: formatCurrentTime(info.start),
+        endTime: formatCurrentTime(info.end),
+      });
+      successCallback(events.map(mapCalendarEventToFullCalendar));
+    } catch (error) {
+      failureCallback(error instanceof Error ? error : new Error('日程加载失败'));
+      ElMessage.error('日程加载失败');
+    } finally {
+      loading.value = false;
+    }
   },
   eventClick: (arg: EventClickArg) => {
     selectedEvent.value = arg.event.extendedProps.raw as CalendarEventItem;
     detailVisible.value = true;
   },
-}));
+};
 
-async function loadEvents(start: Date, end: Date): Promise<void> {
-  loading.value = true;
+async function refresh(): Promise<void> {
+  calendarRef.value?.getApi().refetchEvents();
+}
+
+function openEdit(): void {
+  if (!selectedEvent.value) return;
+  Object.assign(editForm.value, {
+    title: selectedEvent.value.title,
+    startTime: selectedEvent.value.startTime,
+    endTime: selectedEvent.value.endTime,
+    location: selectedEvent.value.location ?? '',
+    description: selectedEvent.value.description ?? '',
+    reminderMinutes: selectedEvent.value.reminderMinutes ?? 10,
+  });
+  detailVisible.value = false;
+  editVisible.value = true;
+}
+
+async function saveEdit(): Promise<void> {
+  const eventId = selectedEvent.value?.id ?? selectedEvent.value?.eventId;
+  if (!eventId) return;
+  saving.value = true;
   try {
-    const result = await getCalendarEvents({
-      userId: DEFAULT_USER_ID,
-      startTime: formatCurrentTime(start),
-      endTime: formatCurrentTime(end),
-    });
-    events.value = result.map(mapCalendarEventToFullCalendar);
-  } catch (error) {
-    console.error(error);
-    ElMessage.error('日程加载失败。');
+    await updateCalendarEvent(eventId, { userId: DEFAULT_USER_ID, ...editForm.value });
+    editVisible.value = false;
+    await refresh();
+    emit('calendar-change');
+    ElMessage.success('日程已更新');
   } finally {
-    loading.value = false;
+    saving.value = false;
   }
 }
 
-async function refresh(): Promise<void> {
-  if (!currentRange.value) {
-    const api = calendarRef.value?.getApi();
-    if (api) {
-      await loadEvents(api.view.activeStart, api.view.activeEnd);
+async function removeSelectedEvent(): Promise<void> {
+  const eventId = selectedEvent.value?.id ?? selectedEvent.value?.eventId;
+  if (!eventId) return;
+  const eventTitle = selectedEvent.value?.title ?? '该日程';
+  try {
+    let scope: 'SINGLE' | 'SERIES' = 'SINGLE';
+    if (selectedEvent.value?.recurrenceSeriesId) {
+      try {
+        await ElMessageBox.confirm('删除整个重复系列，或仅删除当前一次？', '删除重复日程', {
+          distinguishCancelAndClose: true,
+          confirmButtonText: '删除整个系列',
+          cancelButtonText: '仅删除本次',
+          type: 'warning',
+        });
+        scope = 'SERIES';
+      } catch (action) {
+        if (action === 'close') return;
+      }
     }
-    return;
+    await ElMessageBox.confirm(`确认删除“${eventTitle}”吗？`, '删除日程', { type: 'warning' });
+    await deleteCalendarEvent(eventId, DEFAULT_USER_ID, scope);
+    detailVisible.value = false;
+    await refresh();
+    emit('calendar-change');
+    ElMessage.success('日程已删除');
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('日程删除失败');
   }
-
-  await loadEvents(currentRange.value.start, currentRange.value.end);
 }
 
 defineExpose({ refresh });
@@ -121,80 +168,70 @@ defineExpose({ refresh });
 
 <style scoped>
 .calendar-panel {
-  height: 100%;
-  border: 1px solid rgba(41, 89, 173, 0.12);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.9);
+  padding: 16px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #fff;
 }
 
-:deep(.el-card__header) {
-  padding: 20px 22px 12px;
-  border-bottom: none;
-}
-
-:deep(.el-card__body) {
-  padding: 8px 22px 22px;
-}
-
-.panel-header {
+.panel-heading {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.panel-header h2 {
-  margin: 0 0 8px;
-  font-size: 22px;
+h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
 }
 
-.panel-header p {
-  margin: 0;
-  color: #53627c;
+.panel-heading span,
+.unit {
+  color: #667085;
+  font-size: 12px;
+}
+
+.unit {
+  margin-left: 8px;
 }
 
 :deep(.fc) {
-  --fc-border-color: rgba(120, 148, 214, 0.18);
-  --fc-button-bg-color: #153c78;
-  --fc-button-border-color: #153c78;
-  --fc-button-hover-bg-color: #1c529f;
-  --fc-button-hover-border-color: #1c529f;
-  --fc-button-active-bg-color: #0f2e59;
-  --fc-button-active-border-color: #0f2e59;
-  --fc-event-bg-color: #18a77b;
-  --fc-event-border-color: #18a77b;
-  --fc-today-bg-color: rgba(45, 125, 255, 0.08);
+  --fc-border-color: #e5e9ef;
+  --fc-button-bg-color: #245b8a;
+  --fc-button-border-color: #245b8a;
+  --fc-button-hover-bg-color: #1d4b73;
+  --fc-button-hover-border-color: #1d4b73;
+  --fc-button-active-bg-color: #173e60;
+  --fc-button-active-border-color: #173e60;
+  --fc-event-bg-color: #238b76;
+  --fc-event-border-color: #238b76;
+  --fc-today-bg-color: #f0f8f6;
 }
 
 :deep(.fc .fc-toolbar-title) {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1d2d50;
+  color: #182230;
+  font-size: 18px;
 }
 
 :deep(.fc .fc-button) {
-  border-radius: 999px;
-  padding: 0.55em 1em;
+  border-radius: 4px;
 }
 
-.detail-item {
+.detail-list {
+  display: grid;
+}
+
+.detail-list div {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(101, 127, 180, 0.12);
+  border-bottom: 1px solid #edf0f3;
 }
 
-.detail-item:last-child {
-  border-bottom: none;
-}
-
-.detail-item span {
-  color: #60708a;
-}
-
-.detail-item strong {
-  text-align: right;
-  color: #1f2d3d;
+.detail-list span {
+  color: #667085;
 }
 </style>

@@ -1,7 +1,7 @@
 import type { EventInput } from '@fullcalendar/core';
 
 import { http, unwrapApiResponse } from '@/api/http';
-import type { CalendarEventItem, CalendarQueryParams } from '@/types/calendar';
+import type { CalendarEventItem, CalendarEventUpdateRequest, CalendarQueryParams } from '@/types/calendar';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -62,4 +62,27 @@ export function mapCalendarEventToFullCalendar(event: CalendarEventItem): EventI
       raw: event,
     },
   };
+}
+
+export async function updateCalendarEvent(
+  eventId: string | number,
+  request: CalendarEventUpdateRequest,
+): Promise<CalendarEventItem> {
+  const { data } = await http.put<CalendarEventItem | { data: CalendarEventItem; success: boolean; message?: string }>(
+    `/api/calendar/events/${eventId}`,
+    request,
+  );
+  return unwrapApiResponse(data);
+}
+
+export async function deleteCalendarEvent(
+  eventId: string | number,
+  userId: string,
+  scope: 'SINGLE' | 'SERIES' = 'SINGLE',
+): Promise<boolean> {
+  const { data } = await http.delete<boolean | { data: boolean; success: boolean; message?: string }>(
+    `/api/calendar/events/${eventId}`,
+    { params: { userId, scope } },
+  );
+  return unwrapApiResponse(data);
 }
