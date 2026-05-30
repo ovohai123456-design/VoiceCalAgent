@@ -3,6 +3,7 @@ package com.voice.agent.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.voice.agent.mapper.CalendarEventMapper;
+import com.voice.agent.mapper.RecurrenceSeriesMapper;
 import com.voice.agent.model.dto.ConflictCheckRequest;
 import com.voice.agent.model.dto.CreateEventRequest;
 import com.voice.agent.model.dto.EventResolveRequest;
@@ -10,10 +11,12 @@ import com.voice.agent.model.dto.FreeSlotRequest;
 import com.voice.agent.model.dto.QueryEventRequest;
 import com.voice.agent.model.dto.UpdateEventRequest;
 import com.voice.agent.model.entity.CalendarEventEntity;
+import com.voice.agent.model.entity.RecurrenceSeriesEntity;
 import com.voice.agent.model.vo.CalendarEventVO;
 import com.voice.agent.model.vo.ConflictResultVO;
 import com.voice.agent.model.vo.FreeSlotVO;
 import com.voice.agent.service.CalendarService;
+import com.voice.agent.service.ReminderJobService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -39,8 +43,14 @@ public class CalendarServiceImpl implements CalendarService {
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_DELETED = "DELETED";
     private static final String SOURCE_API = "API";
+    private static final String RECURRENCE_NONE = "NONE";
+    private static final String RECURRENCE_DAILY = "DAILY";
+    private static final String RECURRENCE_WEEKLY = "WEEKLY";
+    private static final String RECURRENCE_MONTHLY = "MONTHLY";
 
     private final CalendarEventMapper calendarEventMapper;
+    private final RecurrenceSeriesMapper recurrenceSeriesMapper;
+    private final ReminderJobService reminderJobService;
 
     @Value("${voicecal.default-user-id:1}")
     private Long defaultUserId;
@@ -57,13 +67,35 @@ public class CalendarServiceImpl implements CalendarService {
     @Value("${voicecal.calendar.max-free-slot-count:3}")
     private Integer maxFreeSlotCount;
 
-    public CalendarServiceImpl(CalendarEventMapper calendarEventMapper) {
+    @Value("${voicecal.calendar.recurrence-default-count:12}")
+    private Integer recurrenceDefaultCount;
+
+    @Value("${voicecal.calendar.recurrence-max-count:100}")
+    private Integer recurrenceMaxCount;
+
+    public CalendarServiceImpl(
+            CalendarEventMapper calendarEventMapper,
+            RecurrenceSeriesMapper recurrenceSeriesMapper,
+            ReminderJobService reminderJobService
+    ) {
         this.calendarEventMapper = calendarEventMapper;
+        this.recurrenceSeriesMapper = recurrenceSeriesMapper;
+        this.reminderJobService = reminderJobService;
     }
 
     @Override
     @Transactional
     public CalendarEventVO createEvent(CreateEventRequest request) {
+        return createEventInternal(request, false);
+    }
+
+    @Override
+    @Transactional
+    public CalendarEventVO createPreparedEvent(CreateEventRequest request) {
+        return createEventInternal(request, true);
+    }
+
+    private CalendarEventVO createEventInternal(CreateEventRequest request, boolean conflictAlreadyChecked) {
         validateCreateRequest(request);
         Long userId = resolveUserId(request.getUserId());
 
@@ -73,14 +105,20 @@ public class CalendarServiceImpl implements CalendarService {
             return toVO(existing);
         }
 
+        if (isRecurring(request)) {
+            return createRecurringEvents(request, userId);
+        }
+
         // 创建前必须先做冲突检测，避免同一用户同一时间段出现重叠日程。
-        ConflictCheckRequest conflictRequest = new ConflictCheckRequest();
-        conflictRequest.setUserId(userId);
-        conflictRequest.setStartTime(request.getStartTime());
-        conflictRequest.setEndTime(request.getEndTime());
-        ConflictResultVO conflict = checkConflict(conflictRequest);
-        if (Boolean.TRUE.equals(conflict.getHasConflict())) {
-            throw new IllegalStateException("目标时间段已有日程冲突");
+        if (!conflictAlreadyChecked) {
+            ConflictCheckRequest conflictRequest = new ConflictCheckRequest();
+            conflictRequest.setUserId(userId);
+            conflictRequest.setStartTime(request.getStartTime());
+            conflictRequest.setEndTime(request.getEndTime());
+            ConflictResultVO conflict = checkConflict(conflictRequest);
+            if (Boolean.TRUE.equals(conflict.getHasConflict())) {
+                throw new IllegalStateException("目标时间段已有日程冲突");
+            }
         }
 
         CalendarEventEntity entity = new CalendarEventEntity();
@@ -95,10 +133,14 @@ public class CalendarServiceImpl implements CalendarService {
         entity.setSource(StringUtils.hasText(request.getSource()) ? request.getSource().trim() : SOURCE_API);
         entity.setStatus(STATUS_ACTIVE);
         entity.setIdempotencyKey(trimToNull(request.getIdempotencyKey()));
-        entity.setCreatedByTaskId(trimToNull(request.getTaskId()));
+        entity.setSourceTaskId(trimToNull(request.getSourceTaskId()));
 
+        LocalDateTime now = LocalDateTime.now();
+        entity.setCreatedAt(now);
+        entity.setUpdatedAt(now);
         calendarEventMapper.insert(entity);
-        return toVO(calendarEventMapper.selectById(entity.getId()));
+        reminderJobService.createForEvent(entity);
+        return toVO(entity);
     }
 
     @Override
@@ -139,6 +181,16 @@ public class CalendarServiceImpl implements CalendarService {
     @Override
     @Transactional
     public CalendarEventVO updateEvent(Long eventId, UpdateEventRequest request) {
+        return updateEventInternal(eventId, request, false);
+    }
+
+    @Override
+    @Transactional
+    public CalendarEventVO updatePreparedEvent(Long eventId, UpdateEventRequest request) {
+        return updateEventInternal(eventId, request, true);
+    }
+
+    private CalendarEventVO updateEventInternal(Long eventId, UpdateEventRequest request, boolean conflictAlreadyChecked) {
         if (eventId == null) {
             throw new IllegalArgumentException("eventId 不能为空");
         }
@@ -157,7 +209,7 @@ public class CalendarServiceImpl implements CalendarService {
         // 只有时间发生变化时才重新检测冲突，并排除当前被修改的事件。
         boolean timeChanged = !Objects.equals(entity.getStartTime(), newStart)
                 || !Objects.equals(entity.getEndTime(), newEnd);
-        if (timeChanged) {
+        if (timeChanged && !conflictAlreadyChecked) {
             ConflictCheckRequest conflictRequest = new ConflictCheckRequest();
             conflictRequest.setUserId(userId);
             conflictRequest.setStartTime(newStart);
@@ -186,23 +238,47 @@ public class CalendarServiceImpl implements CalendarService {
         if (request.getReminderMinutes() != null) {
             entity.setReminderMinutes(request.getReminderMinutes());
         }
-        if (StringUtils.hasText(request.getTaskId())) {
-            entity.setCreatedByTaskId(request.getTaskId().trim());
+        if (StringUtils.hasText(request.getSourceTaskId())) {
+            entity.setSourceTaskId(request.getSourceTaskId().trim());
         }
+        entity.setUpdatedAt(LocalDateTime.now());
 
         calendarEventMapper.updateById(entity);
-        return toVO(calendarEventMapper.selectById(eventId));
+        reminderJobService.syncForEvent(entity);
+        return toVO(entity);
     }
 
     @Override
     @Transactional
     public Boolean deleteEvent(Long eventId, Long userId) {
+        return deleteEvent(eventId, userId, "SINGLE");
+    }
+
+    @Override
+    @Transactional
+    public Boolean deleteEvent(Long eventId, Long userId, String scope) {
         if (eventId == null) {
             throw new IllegalArgumentException("eventId 不能为空");
         }
         CalendarEventEntity entity = getActiveEvent(eventId, resolveUserId(userId));
+        if ("SERIES".equalsIgnoreCase(scope) && StringUtils.hasText(entity.getRecurrenceSeriesId())) {
+            int deletedCount = calendarEventMapper.softDeleteSeries(entity.getRecurrenceSeriesId(), entity.getUserId());
+            RecurrenceSeriesEntity series = recurrenceSeriesMapper.selectById(entity.getRecurrenceSeriesId());
+            if (series != null) {
+                series.setStatus(STATUS_DELETED);
+                series.setUpdatedAt(LocalDateTime.now());
+                recurrenceSeriesMapper.updateById(series);
+            }
+            reminderJobService.cancelPendingForSeries(entity.getRecurrenceSeriesId());
+            return deletedCount > 0;
+        }
         entity.setStatus(STATUS_DELETED);
-        return calendarEventMapper.updateById(entity) > 0;
+        entity.setUpdatedAt(LocalDateTime.now());
+        boolean deleted = calendarEventMapper.updateById(entity) > 0;
+        if (deleted) {
+            reminderJobService.cancelPendingForEvent(eventId);
+        }
+        return deleted;
     }
 
     @Override
@@ -257,6 +333,122 @@ public class CalendarServiceImpl implements CalendarService {
         query.setEndTime(request.getRangeEnd());
         query.setKeyword(request.getTitleKeyword());
         return queryEvents(query);
+    }
+
+    private CalendarEventVO createRecurringEvents(CreateEventRequest request, Long userId) {
+        String recurrenceType = request.getRecurrenceType().trim().toUpperCase();
+        int interval = request.getRecurrenceInterval() == null ? 1 : request.getRecurrenceInterval();
+        int requestedCount = request.getRecurrenceCount() == null ? recurrenceDefaultCount : request.getRecurrenceCount();
+        int count = Math.min(requestedCount, recurrenceMaxCount);
+        if (interval <= 0) {
+            throw new IllegalArgumentException("recurrenceInterval 必须大于 0");
+        }
+        if (count <= 0) {
+            throw new IllegalArgumentException("recurrenceCount 必须大于 0");
+        }
+
+        String seriesId = "series_" + UUID.randomUUID().toString().replace("-", "");
+        String baseIdempotencyKey = StringUtils.hasText(request.getIdempotencyKey())
+                ? request.getIdempotencyKey().trim()
+                : "event_" + UUID.randomUUID().toString().replace("-", "");
+        LocalDateTime now = LocalDateTime.now();
+        List<CalendarEventEntity> occurrences = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            LocalDateTime startTime = addRecurrence(request.getStartTime(), recurrenceType, interval, index);
+            if (request.getRecurrenceUntil() != null && startTime.toLocalDate().isAfter(request.getRecurrenceUntil())) {
+                break;
+            }
+            LocalDateTime endTime = startTime.plusMinutes(
+                    java.time.Duration.between(request.getStartTime(), request.getEndTime()).toMinutes()
+            );
+            CalendarEventEntity occurrence = newEventEntity(request, userId, startTime, endTime);
+            occurrence.setIdempotencyKey(index == 0 ? baseIdempotencyKey : baseIdempotencyKey + "_" + index);
+            occurrence.setRecurrenceSeriesId(seriesId);
+            occurrence.setRecurrenceIndex(index);
+            occurrence.setCreatedAt(now);
+            occurrence.setUpdatedAt(now);
+            occurrences.add(occurrence);
+        }
+        if (occurrences.isEmpty()) {
+            throw new IllegalArgumentException("重复日程没有可创建的实例");
+        }
+
+        List<CalendarEventEntity> busyEvents = listEventsForRange(
+                userId,
+                occurrences.get(0).getStartTime(),
+                occurrences.get(occurrences.size() - 1).getEndTime(),
+                null
+        );
+        for (CalendarEventEntity occurrence : occurrences) {
+            for (CalendarEventEntity busyEvent : busyEvents) {
+                if (occurrence.getStartTime().isBefore(busyEvent.getEndTime())
+                        && occurrence.getEndTime().isAfter(busyEvent.getStartTime())) {
+                    throw new IllegalStateException("重复日程中的部分时间段已有日程冲突");
+                }
+            }
+        }
+
+        RecurrenceSeriesEntity series = new RecurrenceSeriesEntity();
+        series.setSeriesId(seriesId);
+        series.setUserId(userId);
+        series.setTitle(request.getTitle().trim());
+        series.setRecurrenceType(recurrenceType);
+        series.setIntervalValue(interval);
+        series.setTotalCount(occurrences.size());
+        series.setUntilDate(request.getRecurrenceUntil());
+        series.setStatus(STATUS_ACTIVE);
+        series.setCreatedAt(now);
+        series.setUpdatedAt(now);
+        recurrenceSeriesMapper.insert(series);
+
+        calendarEventMapper.insertBatch(occurrences);
+        List<CalendarEventEntity> created = calendarEventMapper.selectList(
+                Wrappers.lambdaQuery(CalendarEventEntity.class)
+                        .eq(CalendarEventEntity::getRecurrenceSeriesId, seriesId)
+                        .orderByAsc(CalendarEventEntity::getRecurrenceIndex)
+        );
+        reminderJobService.createForEvents(created);
+        return toVO(created.get(0));
+    }
+
+    private CalendarEventEntity newEventEntity(
+            CreateEventRequest request,
+            Long userId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        CalendarEventEntity entity = new CalendarEventEntity();
+        entity.setUserId(userId);
+        entity.setTitle(request.getTitle().trim());
+        entity.setStartTime(startTime);
+        entity.setEndTime(endTime);
+        entity.setLocation(trimToNull(request.getLocation()));
+        entity.setDescription(trimToNull(request.getDescription()));
+        entity.setMeetingUrl(trimToNull(request.getMeetingUrl()));
+        entity.setReminderMinutes(request.getReminderMinutes());
+        entity.setSource(StringUtils.hasText(request.getSource()) ? request.getSource().trim() : SOURCE_API);
+        entity.setStatus(STATUS_ACTIVE);
+        entity.setSourceTaskId(trimToNull(request.getSourceTaskId()));
+        return entity;
+    }
+
+    private LocalDateTime addRecurrence(LocalDateTime base, String recurrenceType, int interval, int index) {
+        long amount = (long) interval * index;
+        if (RECURRENCE_DAILY.equals(recurrenceType)) {
+            return base.plusDays(amount);
+        }
+        if (RECURRENCE_WEEKLY.equals(recurrenceType)) {
+            return base.plusWeeks(amount);
+        }
+        if (RECURRENCE_MONTHLY.equals(recurrenceType)) {
+            return base.plusMonths(amount);
+        }
+        throw new IllegalArgumentException("不支持的重复类型: " + recurrenceType);
+    }
+
+    private boolean isRecurring(CreateEventRequest request) {
+        return StringUtils.hasText(request.getRecurrenceType())
+                && !RECURRENCE_NONE.equalsIgnoreCase(request.getRecurrenceType().trim());
     }
 
     private CalendarEventEntity findByIdempotencyKey(Long userId, String idempotencyKey) {
@@ -398,6 +590,8 @@ public class CalendarServiceImpl implements CalendarService {
         vo.setReminderMinutes(entity.getReminderMinutes());
         vo.setSource(entity.getSource());
         vo.setStatus(entity.getStatus());
+        vo.setRecurrenceSeriesId(entity.getRecurrenceSeriesId());
+        vo.setRecurrenceIndex(entity.getRecurrenceIndex());
         vo.setCreatedAt(entity.getCreatedAt());
         vo.setUpdatedAt(entity.getUpdatedAt());
         return vo;

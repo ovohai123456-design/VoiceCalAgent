@@ -25,6 +25,11 @@ public interface CalendarService {
     CalendarEventVO createEvent(CreateEventRequest request);
 
     /**
+     * Creates an event after CalendarAgent already validated conflicts in the same workflow.
+     */
+    CalendarEventVO createPreparedEvent(CreateEventRequest request);
+
+    /**
      * 查询日程。时间范围查询使用重叠条件：event.start < rangeEnd && event.end > rangeStart。
      */
     List<CalendarEventVO> queryEvents(QueryEventRequest request);
@@ -35,9 +40,19 @@ public interface CalendarService {
     CalendarEventVO updateEvent(Long eventId, UpdateEventRequest request);
 
     /**
+     * Updates an event after CalendarAgent already resolved the event and validated conflicts.
+     */
+    CalendarEventVO updatePreparedEvent(Long eventId, UpdateEventRequest request);
+
+    /**
      * 删除日程。当前业务采用软删除，只把 status 改为 DELETED。
      */
     Boolean deleteEvent(Long eventId, Long userId);
+
+    /**
+     * Deletes one occurrence or every occurrence in the same recurring series.
+     */
+    Boolean deleteEvent(Long eventId, Long userId, String scope);
 
     /**
      * 检测目标时间段是否和已有日程冲突，并在冲突时返回候选空闲时间。
