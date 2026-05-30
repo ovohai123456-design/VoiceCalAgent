@@ -2,6 +2,10 @@ package com.voice.agent.agent;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import com.voice.agent.model.dto.CreateEventRequest;
+import com.voice.agent.model.entity.UserPreferenceEntity;
+import com.voice.agent.service.UserPreferenceService;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +16,11 @@ import java.time.LocalDateTime;
  */
 @Component
 public class DefaultValueResolver {
+    private final UserPreferenceService preferenceService;
+
+    public DefaultValueResolver(UserPreferenceService preferenceService) {
+        this.preferenceService = preferenceService;
+    }
     @Value("${voicecal.default-user-id:1}")
     private Long defaultUserId;
 
@@ -34,5 +43,30 @@ public class DefaultValueResolver {
 
     public Integer resolveReminderMinutes(Integer reminderMinutes) {
         return reminderMinutes == null ? defaultReminderMinutes : reminderMinutes;
+    }
+
+    public void applyCreatePreferences(CreateEventRequest request) {
+        if (request == null || request.getUserId() == null) {
+            return;
+        }
+        UserPreferenceEntity preference = preferenceService.get(request.getUserId());
+        if (preference == null) {
+            preference = new UserPreferenceEntity();
+        }
+        if (request.getReminderMinutes() == null) {
+            request.setReminderMinutes(preference.getDefaultReminderMinutes() == null
+                    ? defaultReminderMinutes : preference.getDefaultReminderMinutes());
+        }
+        if (request.getStartTime() != null && request.getEndTime() == null) {
+            int minutes = preference.getDefaultDurationMinutes() == null
+                    ? defaultDurationMinutes : preference.getDefaultDurationMinutes();
+            request.setEndTime(request.getStartTime().plusMinutes(minutes));
+        }
+        if (!StringUtils.hasText(request.getLocation()) && StringUtils.hasText(preference.getDefaultLocation())) {
+            request.setLocation(preference.getDefaultLocation());
+        }
+        if (!StringUtils.hasText(request.getEmailReceiver()) && StringUtils.hasText(preference.getDefaultEmail())) {
+            request.setEmailReceiver(preference.getDefaultEmail());
+        }
     }
 }
