@@ -1,0 +1,16 @@
+skill_id: calendar.update
+name: Update calendar event
+description: Update a selected calendar event
+category: calendar
+enabled: true
+trigger_examples:
+  - update calendar event
+  - 修改日程
+  - 调整时间
+input_schema:
+  type: object
+  required:
+    - event_id
+executor:
+  type: native
+  tool_key: calendar.update

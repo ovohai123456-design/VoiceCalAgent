@@ -1,0 +1,18 @@
+skill_id: calendar.create
+name: Create calendar event
+description: Create a calendar event after validating the requested time
+category: calendar
+enabled: true
+trigger_examples:
+  - create calendar event
+  - 安排日程
+  - 创建日程
+input_schema:
+  type: object
+  required:
+    - title
+    - start_time
+    - end_time
+executor:
+  type: native
+  tool_key: calendar.create

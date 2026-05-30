@@ -1,0 +1,16 @@
+skill_id: calendar.conflict_check
+name: Check calendar conflict
+description: Check whether a requested time range conflicts with calendar events
+category: calendar
+enabled: true
+trigger_examples:
+  - check calendar conflict
+  - 检查时间冲突
+input_schema:
+  type: object
+  required:
+    - start_time
+    - end_time
+executor:
+  type: native
+  tool_key: calendar.conflict_check

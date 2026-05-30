@@ -1,0 +1,13 @@
+skill_id: calendar.resolve_event
+name: Resolve calendar event
+description: Find candidate calendar events before an update or delete action
+category: calendar
+enabled: true
+trigger_examples:
+  - find calendar event
+  - 定位日程
+input_schema:
+  type: object
+executor:
+  type: native
+  tool_key: calendar.resolve_event

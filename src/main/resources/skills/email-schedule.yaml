@@ -1,0 +1,19 @@
+skill_id: email.schedule
+name: Schedule email reminder
+description: Schedule an email reminder for a calendar event
+category: communication
+enabled: true
+trigger_examples:
+  - schedule email reminder
+  - 邮件提醒
+input_schema:
+  type: object
+  required:
+    - user_id
+    - event_id
+    - receiver
+    - content
+    - run_at
+executor:
+  type: scheduler
+  job_type: EMAIL

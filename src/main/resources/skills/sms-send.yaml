@@ -1,0 +1,18 @@
+skill_id: sms.send
+name: Send SMS reminder
+description: Send a calendar reminder message to a receiver
+category: communication
+enabled: true
+trigger_examples:
+  - send sms reminder
+  - text reminder
+  - 短信提醒
+  - 发短信
+input_schema:
+  type: object
+  required:
+    - receiver
+    - content
+executor:
+  type: mock
+  mock_name: sms.send

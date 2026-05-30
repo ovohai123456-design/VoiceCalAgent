@@ -1,0 +1,14 @@
+skill_id: calendar.query
+name: Query calendar events
+description: Query calendar events in a requested time range
+category: calendar
+enabled: true
+trigger_examples:
+  - query calendar
+  - 查询日程
+  - 有什么安排
+input_schema:
+  type: object
+executor:
+  type: native
+  tool_key: calendar.query

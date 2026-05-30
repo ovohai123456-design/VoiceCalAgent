@@ -1,0 +1,17 @@
+skill_id: contact.query
+name: Query contact
+description: Resolve a saved contact by name before sending a message
+category: contact
+enabled: true
+trigger_examples:
+  - query contact
+  - 联系人
+  - 短信提醒
+input_schema:
+  type: object
+  required:
+    - user_id
+    - keyword
+executor:
+  type: native
+  tool_key: contact.query
