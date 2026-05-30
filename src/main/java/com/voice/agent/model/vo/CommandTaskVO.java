@@ -1,30 +1,21 @@
-package com.voice.agent.model.entity;
-
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+package com.voice.agent.model.vo;
 
 import java.time.LocalDateTime;
 
-@TableName("agent_task")
-public class AgentTaskEntity {
-    @TableId(value = "task_id", type = IdType.INPUT)
+public class CommandTaskVO {
     private String taskId;
     private Long userId;
     private String sessionId;
     private String inputType;
-    private String requestText;
+    private String inputText;
     private String intent;
     private String status;
-    private Boolean needConfirm;
-    private String confirmToken;
     private String replyText;
     private String speakText;
     private String errorMessage;
     private LocalDateTime startedAt;
     private LocalDateTime finishedAt;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     public String getTaskId() {
         return taskId;
@@ -58,12 +49,12 @@ public class AgentTaskEntity {
         this.inputType = inputType;
     }
 
-    public String getRequestText() {
-        return requestText;
+    public String getInputText() {
+        return inputText;
     }
 
-    public void setRequestText(String requestText) {
-        this.requestText = requestText;
+    public void setInputText(String inputText) {
+        this.inputText = inputText;
     }
 
     public String getIntent() {
@@ -80,22 +71,6 @@ public class AgentTaskEntity {
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public Boolean getNeedConfirm() {
-        return needConfirm;
-    }
-
-    public void setNeedConfirm(Boolean needConfirm) {
-        this.needConfirm = needConfirm;
-    }
-
-    public String getConfirmToken() {
-        return confirmToken;
-    }
-
-    public void setConfirmToken(String confirmToken) {
-        this.confirmToken = confirmToken;
     }
 
     public String getReplyText() {
@@ -144,13 +119,5 @@ public class AgentTaskEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

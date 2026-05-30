@@ -18,6 +18,8 @@ public class CalendarEventVO {
     private Integer reminderMinutes;
     private String source;
     private String status;
+    private String recurrenceSeriesId;
+    private Integer recurrenceIndex;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -109,6 +111,22 @@ public class CalendarEventVO {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getRecurrenceSeriesId() {
+        return recurrenceSeriesId;
+    }
+
+    public void setRecurrenceSeriesId(String recurrenceSeriesId) {
+        this.recurrenceSeriesId = recurrenceSeriesId;
+    }
+
+    public Integer getRecurrenceIndex() {
+        return recurrenceIndex;
+    }
+
+    public void setRecurrenceIndex(Integer recurrenceIndex) {
+        this.recurrenceIndex = recurrenceIndex;
     }
 
     public LocalDateTime getCreatedAt() {

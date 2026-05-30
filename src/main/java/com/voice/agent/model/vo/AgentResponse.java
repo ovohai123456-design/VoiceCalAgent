@@ -9,6 +9,7 @@ public class AgentResponse {
     private Boolean needConfirm;
     private String confirmToken;
     private Boolean needClarify;
+    private Boolean needEventSelection;
     private List<String> missingFields = new ArrayList<>();
     private String replyText;
     private String speakText;
@@ -52,6 +53,14 @@ public class AgentResponse {
 
     public void setNeedClarify(Boolean needClarify) {
         this.needClarify = needClarify;
+    }
+
+    public Boolean getNeedEventSelection() {
+        return needEventSelection;
+    }
+
+    public void setNeedEventSelection(Boolean needEventSelection) {
+        this.needEventSelection = needEventSelection;
     }
 
     public List<String> getMissingFields() {

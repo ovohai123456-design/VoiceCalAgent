@@ -15,7 +15,7 @@ public class UpdateEventRequest {
     private String description;
     private String meetingUrl;
     private Integer reminderMinutes;
-    private String taskId;
+    private String sourceTaskId;
 
     public Long getUserId() {
         return userId;
@@ -81,11 +81,11 @@ public class UpdateEventRequest {
         this.reminderMinutes = reminderMinutes;
     }
 
-    public String getTaskId() {
-        return taskId;
+    public String getSourceTaskId() {
+        return sourceTaskId;
     }
 
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
+    public void setSourceTaskId(String sourceTaskId) {
+        this.sourceTaskId = sourceTaskId;
     }
 }

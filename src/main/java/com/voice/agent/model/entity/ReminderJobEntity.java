@@ -1,20 +1,28 @@
-package com.voice.agent.model.vo;
+package com.voice.agent.model.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
-public class ScheduledJobVO {
+@TableName("reminder_job")
+public class ReminderJobEntity {
+    @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
     private Long eventId;
-    private String taskId;
     private String jobType;
+    private String jobPayloadJson;
     private LocalDateTime runAt;
     private String status;
     private Integer retryCount;
     private Integer maxRetryCount;
     private String lastError;
+    private LocalDateTime lockedAt;
     private LocalDateTime executedAt;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     public Long getId() {
         return id;
@@ -40,20 +48,20 @@ public class ScheduledJobVO {
         this.eventId = eventId;
     }
 
-    public String getTaskId() {
-        return taskId;
-    }
-
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
-    }
-
     public String getJobType() {
         return jobType;
     }
 
     public void setJobType(String jobType) {
         this.jobType = jobType;
+    }
+
+    public String getJobPayloadJson() {
+        return jobPayloadJson;
+    }
+
+    public void setJobPayloadJson(String jobPayloadJson) {
+        this.jobPayloadJson = jobPayloadJson;
     }
 
     public LocalDateTime getRunAt() {
@@ -96,6 +104,14 @@ public class ScheduledJobVO {
         this.lastError = lastError;
     }
 
+    public LocalDateTime getLockedAt() {
+        return lockedAt;
+    }
+
+    public void setLockedAt(LocalDateTime lockedAt) {
+        this.lockedAt = lockedAt;
+    }
+
     public LocalDateTime getExecutedAt() {
         return executedAt;
     }
@@ -110,5 +126,13 @@ public class ScheduledJobVO {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

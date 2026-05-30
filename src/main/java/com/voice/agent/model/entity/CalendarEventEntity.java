@@ -21,7 +21,9 @@ public class CalendarEventEntity {
     private String source;
     private String status;
     private String idempotencyKey;
-    private String createdByTaskId;
+    private String sourceTaskId;
+    private String recurrenceSeriesId;
+    private Integer recurrenceIndex;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -121,12 +123,28 @@ public class CalendarEventEntity {
         this.idempotencyKey = idempotencyKey;
     }
 
-    public String getCreatedByTaskId() {
-        return createdByTaskId;
+    public String getSourceTaskId() {
+        return sourceTaskId;
     }
 
-    public void setCreatedByTaskId(String createdByTaskId) {
-        this.createdByTaskId = createdByTaskId;
+    public void setSourceTaskId(String sourceTaskId) {
+        this.sourceTaskId = sourceTaskId;
+    }
+
+    public String getRecurrenceSeriesId() {
+        return recurrenceSeriesId;
+    }
+
+    public void setRecurrenceSeriesId(String recurrenceSeriesId) {
+        this.recurrenceSeriesId = recurrenceSeriesId;
+    }
+
+    public Integer getRecurrenceIndex() {
+        return recurrenceIndex;
+    }
+
+    public void setRecurrenceIndex(Integer recurrenceIndex) {
+        this.recurrenceIndex = recurrenceIndex;
     }
 
     public LocalDateTime getCreatedAt() {

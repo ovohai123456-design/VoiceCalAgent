@@ -6,8 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
-@TableName("agent_step")
-public class AgentStepEntity {
+@TableName("execution_log")
+public class ExecutionLogEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String taskId;

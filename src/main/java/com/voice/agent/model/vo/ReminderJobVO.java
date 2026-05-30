@@ -1,23 +1,25 @@
-package com.voice.agent.model.entity;
+package com.voice.agent.model.vo;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.time.LocalDateTime;
 
-public class ScheduledJobEntity {
+public class ReminderJobVO {
     private Long id;
     private Long userId;
     private Long eventId;
-    private String taskId;
     private String jobType;
     private String jobPayloadJson;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime runAt;
     private String status;
     private Integer retryCount;
     private Integer maxRetryCount;
     private String lastError;
-    private LocalDateTime lockedAt;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime executedAt;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     public Long getId() {
         return id;
@@ -41,14 +43,6 @@ public class ScheduledJobEntity {
 
     public void setEventId(Long eventId) {
         this.eventId = eventId;
-    }
-
-    public String getTaskId() {
-        return taskId;
-    }
-
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
     }
 
     public String getJobType() {
@@ -107,14 +101,6 @@ public class ScheduledJobEntity {
         this.lastError = lastError;
     }
 
-    public LocalDateTime getLockedAt() {
-        return lockedAt;
-    }
-
-    public void setLockedAt(LocalDateTime lockedAt) {
-        this.lockedAt = lockedAt;
-    }
-
     public LocalDateTime getExecutedAt() {
         return executedAt;
     }
@@ -129,13 +115,5 @@ public class ScheduledJobEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

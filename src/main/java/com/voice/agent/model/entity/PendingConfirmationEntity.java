@@ -6,19 +6,18 @@ import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDateTime;
 
-@TableName("pending_action")
-public class PendingActionEntity {
+@TableName("pending_confirmation")
+public class PendingConfirmationEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
+    private String actionId;
     private Long userId;
     private String sessionId;
-    private String taskId;
     private String confirmToken;
-    private String actionType;
-    private String payloadJson;
     private String status;
     private LocalDateTime expireAt;
-    private LocalDateTime executedAt;
+    private LocalDateTime confirmedAt;
+    private LocalDateTime canceledAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -28,6 +27,14 @@ public class PendingActionEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getActionId() {
+        return actionId;
+    }
+
+    public void setActionId(String actionId) {
+        this.actionId = actionId;
     }
 
     public Long getUserId() {
@@ -46,36 +53,12 @@ public class PendingActionEntity {
         this.sessionId = sessionId;
     }
 
-    public String getTaskId() {
-        return taskId;
-    }
-
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
-    }
-
     public String getConfirmToken() {
         return confirmToken;
     }
 
     public void setConfirmToken(String confirmToken) {
         this.confirmToken = confirmToken;
-    }
-
-    public String getActionType() {
-        return actionType;
-    }
-
-    public void setActionType(String actionType) {
-        this.actionType = actionType;
-    }
-
-    public String getPayloadJson() {
-        return payloadJson;
-    }
-
-    public void setPayloadJson(String payloadJson) {
-        this.payloadJson = payloadJson;
     }
 
     public String getStatus() {
@@ -94,12 +77,20 @@ public class PendingActionEntity {
         this.expireAt = expireAt;
     }
 
-    public LocalDateTime getExecutedAt() {
-        return executedAt;
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
     }
 
-    public void setExecutedAt(LocalDateTime executedAt) {
-        this.executedAt = executedAt;
+    public void setConfirmedAt(LocalDateTime confirmedAt) {
+        this.confirmedAt = confirmedAt;
+    }
+
+    public LocalDateTime getCanceledAt() {
+        return canceledAt;
+    }
+
+    public void setCanceledAt(LocalDateTime canceledAt) {
+        this.canceledAt = canceledAt;
     }
 
     public LocalDateTime getCreatedAt() {

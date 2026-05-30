@@ -3,6 +3,7 @@ package com.voice.agent.model.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class CreateEventRequest {
     private Long userId;
@@ -17,7 +18,17 @@ public class CreateEventRequest {
     private Integer reminderMinutes;
     private String source;
     private String idempotencyKey;
-    private String taskId;
+    private String sourceTaskId;
+    private String recurrenceType;
+    private Integer recurrenceInterval;
+    private Integer recurrenceCount;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate recurrenceUntil;
+    private Boolean onlineMeeting;
+    private String smsReceiver;
+    private String smsContent;
+    private String emailReceiver;
+    private String emailContent;
 
     public Long getUserId() {
         return userId;
@@ -99,11 +110,72 @@ public class CreateEventRequest {
         this.idempotencyKey = idempotencyKey;
     }
 
-    public String getTaskId() {
-        return taskId;
+    public String getSourceTaskId() {
+        return sourceTaskId;
     }
 
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
+    public void setSourceTaskId(String sourceTaskId) {
+        this.sourceTaskId = sourceTaskId;
     }
+
+    public String getRecurrenceType() {
+        return recurrenceType;
+    }
+
+    public void setRecurrenceType(String recurrenceType) {
+        this.recurrenceType = recurrenceType;
+    }
+
+    public Integer getRecurrenceInterval() {
+        return recurrenceInterval;
+    }
+
+    public void setRecurrenceInterval(Integer recurrenceInterval) {
+        this.recurrenceInterval = recurrenceInterval;
+    }
+
+    public Integer getRecurrenceCount() {
+        return recurrenceCount;
+    }
+
+    public void setRecurrenceCount(Integer recurrenceCount) {
+        this.recurrenceCount = recurrenceCount;
+    }
+
+    public LocalDate getRecurrenceUntil() {
+        return recurrenceUntil;
+    }
+
+    public void setRecurrenceUntil(LocalDate recurrenceUntil) {
+        this.recurrenceUntil = recurrenceUntil;
+    }
+
+    public Boolean getOnlineMeeting() {
+        return onlineMeeting;
+    }
+
+    public void setOnlineMeeting(Boolean onlineMeeting) {
+        this.onlineMeeting = onlineMeeting;
+    }
+
+    public String getSmsReceiver() {
+        return smsReceiver;
+    }
+
+    public void setSmsReceiver(String smsReceiver) {
+        this.smsReceiver = smsReceiver;
+    }
+
+    public String getSmsContent() {
+        return smsContent;
+    }
+
+    public void setSmsContent(String smsContent) {
+        this.smsContent = smsContent;
+    }
+
+    public String getEmailReceiver() { return emailReceiver; }
+    public void setEmailReceiver(String emailReceiver) { this.emailReceiver = emailReceiver; }
+    public String getEmailContent() { return emailContent; }
+    public void setEmailContent(String emailContent) { this.emailContent = emailContent; }
 }

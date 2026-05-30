@@ -2,7 +2,7 @@ package com.voice.agent.model.vo;
 
 import java.time.LocalDateTime;
 
-public class AgentStepVO {
+public class ExecutionLogVO {
     private Long id;
     private String taskId;
     private Integer stepOrder;
