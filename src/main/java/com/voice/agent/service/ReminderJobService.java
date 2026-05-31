@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -115,12 +116,10 @@ public class ReminderJobService {
             return jobs;
         }
 
-        jobs.add(newJob(
-                event,
-                JOB_TYPE_IN_APP,
-                "{\"title\":\"" + escapeJson(event.getTitle()) + "\"}",
-                runAt
-        ));
+        Map<String, Object> inAppPayload = new LinkedHashMap<>();
+        inAppPayload.put("title", event.getTitle());
+        inAppPayload.put("description", event.getDescription());
+        jobs.add(newJob(event, JOB_TYPE_IN_APP, toJson(inAppPayload), runAt));
         Map<String, Object> emailPayload = calendarEmailService.buildReminderPayload(
                 event,
                 emailReceiver,
@@ -393,7 +392,4 @@ public class ReminderJobService {
         });
     }
 
-    private String escapeJson(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

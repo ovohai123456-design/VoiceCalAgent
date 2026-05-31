@@ -55,6 +55,11 @@ public interface CalendarService {
     Boolean deleteEvent(Long eventId, Long userId, String scope);
 
     /**
+     * Deletes every event selected by a confirmed time-range operation.
+     */
+    int deleteEvents(List<Long> eventIds, Long userId);
+
+    /**
      * 检测目标时间段是否和已有日程冲突，并在冲突时返回候选空闲时间。
      */
     ConflictResultVO checkConflict(ConflictCheckRequest request);

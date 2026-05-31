@@ -72,6 +72,7 @@ class CalendarEmailServiceTest {
         event.setId(100L);
         event.setUserId(1L);
         event.setTitle("project meeting");
+        event.setDescription("review release checklist");
         event.setStartTime(LocalDateTime.of(2026, 6, 1, 10, 0));
         event.setEndTime(LocalDateTime.of(2026, 6, 1, 11, 0));
         event.setReminderMinutes(10);

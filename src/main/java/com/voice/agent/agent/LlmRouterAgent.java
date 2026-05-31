@@ -56,6 +56,8 @@ public class LlmRouterAgent {
             "(今天|明天|后天|凌晨|早上|上午|中午|下午|晚上|未来|本周|这周|下周|本月|这个月|下个月|今年|"
                     + "[0-9]{1,4}[年/-]|[0-9]{1,2}(?:月|号|日|点))"
     );
+    private static final Pattern RELATIVE_MINUTES_PATTERN = Pattern.compile("([0-9]+)\\s*分钟(?:之后|以后|后)");
+    private static final Pattern DURATION_PATTERN = Pattern.compile("(?:时长|持续)(?:为|是)?\\s*([0-9]+)\\s*(小时|分钟)");
 
     private final LlmClient llmClient;
     private final LlmJsonExtractor jsonExtractor;
@@ -216,8 +218,12 @@ public class LlmRouterAgent {
 
         LocalDateTime rawStartTime = parseDateTime(slots.getStartTime());
         LocalDateTime rawEndTime = parseDateTime(slots.getEndTime());
-        LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
-        LocalDateTime endTime = normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request);
+        LocalDateTime relativeStart = parseRelativeStart(request);
+        LocalDateTime startTime = relativeStart == null ? normalizeRelativeDate(rawStartTime, request) : relativeStart;
+        Duration explicitDuration = parseExplicitDuration(request);
+        LocalDateTime endTime = explicitDuration != null && startTime != null
+                ? startTime.plus(explicitDuration)
+                : relativeStart == null ? normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request) : null;
 
         CreateEventRequest createRequest = new CreateEventRequest();
         createRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
@@ -320,7 +326,9 @@ public class LlmRouterAgent {
     private void fillDeletePlan(AgentPlan plan, RouterSlots slots, AgentExecuteRequest request) {
         plan.setActionType(AgentConstants.ACTION_DELETE_EVENT);
         plan.setNeedConfirm(true);
-        plan.setEventResolveRequest(buildResolveRequest(slots, request));
+        EventResolveRequest resolveRequest = buildResolveRequest(slots, request);
+        markDeleteAllMatches(resolveRequest, request.getText());
+        plan.setEventResolveRequest(resolveRequest);
         ensureResolveCriteria(plan);
         ensureMutationSteps(plan, "DELETE_EVENT", "calendar.delete");
     }
@@ -480,6 +488,26 @@ public class LlmRouterAgent {
         return expectedDate == null ? value : LocalDateTime.of(expectedDate, value.toLocalTime());
     }
 
+    private LocalDateTime parseRelativeStart(AgentExecuteRequest request) {
+        if (request == null || !StringUtils.hasText(request.getText())) {
+            return null;
+        }
+        Matcher matcher = RELATIVE_MINUTES_PATTERN.matcher(request.getText());
+        return matcher.find() ? parseCurrentTime(request.getCurrentTime()).plusMinutes(Long.parseLong(matcher.group(1))) : null;
+    }
+
+    private Duration parseExplicitDuration(AgentExecuteRequest request) {
+        if (request == null || !StringUtils.hasText(request.getText())) {
+            return null;
+        }
+        Matcher matcher = DURATION_PATTERN.matcher(request.getText());
+        if (!matcher.find()) {
+            return null;
+        }
+        long amount = Long.parseLong(matcher.group(1));
+        return "小时".equals(matcher.group(2)) ? Duration.ofHours(amount) : Duration.ofMinutes(amount);
+    }
+
     private LocalDateTime normalizeRelativeEnd(
             LocalDateTime rawStart,
             LocalDateTime rawEnd,
@@ -550,6 +578,25 @@ public class LlmRouterAgent {
                 && ((text.contains("线上") && text.contains("会"))
                 || text.contains("会议链接")
                 || text.contains("腾讯会议"));
+    }
+
+    private void markDeleteAllMatches(EventResolveRequest request, String text) {
+        if (request == null) {
+            return;
+        }
+        if (isGenericDeleteTitle(request.getTitleKeyword())) {
+            request.setTitleKeyword(null);
+        }
+        boolean hasRange = request.getRangeStart() != null && request.getRangeEnd() != null;
+        boolean hasSingleTarget = StringUtils.hasText(request.getTitleKeyword())
+                || StringUtils.hasText(request.getReference())
+                || request.getEventId() != null;
+        boolean explicitlyAll = StringUtils.hasText(text) && (text.contains("所有") || text.contains("全部"));
+        request.setDeleteAllMatches(hasRange && (!hasSingleTarget || explicitlyAll));
+    }
+
+    private boolean isGenericDeleteTitle(String title) {
+        return "日程".equals(title) || "安排".equals(title) || "所有日程".equals(title) || "全部日程".equals(title);
     }
 
     private String resolveSmsReceiver(String slotValue, String text) {

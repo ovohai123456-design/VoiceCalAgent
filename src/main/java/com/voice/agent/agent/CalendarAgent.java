@@ -130,8 +130,26 @@ public class CalendarAgent {
     }
 
     public PreparedDeleteAction prepareDeleteAction(EventResolveRequest resolveRequest) {
+        if (Boolean.TRUE.equals(resolveRequest.getDeleteAllMatches())) {
+            return prepareDeleteAction(calendarService.findCandidateEvents(resolveRequest));
+        }
         CalendarEventVO event = eventResolveService.resolveSingle(resolveRequest);
         return prepareDeleteAction(event);
+    }
+
+    public PreparedDeleteAction prepareDeleteAction(List<CalendarEventVO> events) {
+        if (events == null || events.isEmpty()) {
+            throw new IllegalArgumentException("没有找到符合条件的日程");
+        }
+        DeleteEventActionPayload payload = new DeleteEventActionPayload();
+        payload.setEventIds(events.stream().map(CalendarEventVO::getId).collect(java.util.stream.Collectors.toList()));
+        payload.setUserId(events.get(0).getUserId());
+        payload.setTitle("指定时间段内的 " + events.size() + " 个日程");
+
+        PreparedDeleteAction action = new PreparedDeleteAction();
+        action.setPayload(payload);
+        action.setReplyText("我将删除指定时间段内的 " + events.size() + " 个日程。请确认或取消。");
+        return action;
     }
 
     public PreparedDeleteAction prepareDeleteAction(CalendarEventVO event) {
@@ -153,6 +171,9 @@ public class CalendarAgent {
     }
 
     public Boolean executeDelete(DeleteEventActionPayload payload) {
+        if (payload.getEventIds() != null && !payload.getEventIds().isEmpty()) {
+            return calendarService.deleteEvents(payload.getEventIds(), payload.getUserId()) > 0;
+        }
         return calendarService.deleteEvent(payload.getEventId(), payload.getUserId());
     }
 
@@ -192,6 +213,9 @@ public class CalendarAgent {
     }
 
     public String buildDeleteSuccessText(DeleteEventActionPayload payload) {
+        if (payload.getEventIds() != null && !payload.getEventIds().isEmpty()) {
+            return "已删除指定时间段内的 " + payload.getEventIds().size() + " 个日程。";
+        }
         return "已删除日程「" + payload.getTitle() + "」。";
     }
 

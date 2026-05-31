@@ -31,6 +31,14 @@
           @cancel="handleCancel"
         />
 
+        <ConfirmActionPanel
+          v-if="pendingConfirmText"
+          :text="pendingConfirmText"
+          :loading="confirmingAction"
+          @confirm="handleConfirm"
+          @cancel="handleCancel"
+        />
+
         <CalendarView ref="calendarViewRef" @calendar-change="refreshReminders" />
       </section>
 
@@ -52,10 +60,11 @@
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
+import { cancelAgent, confirmAgent, executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
 import { subscribeAgentEvents, type TaskStatusEvent } from '@/api/eventStream';
 import { clearReminderTasks, deleteReminderTask, listReminderTasks, type ReminderTask } from '@/api/reminderApi';
 import CalendarView from '@/components/CalendarView.vue';
+import ConfirmActionPanel from '@/components/ConfirmActionPanel.vue';
 import ConflictSuggestionPanel from '@/components/ConflictSuggestionPanel.vue';
 import EventCandidatePanel from '@/components/EventCandidatePanel.vue';
 import StatusHeader from '@/components/StatusHeader.vue';
@@ -91,6 +100,8 @@ const conflictSlots = ref<SuggestedSlot[]>([]);
 const selectingSlotIndex = ref<number | null>(null);
 const eventCandidates = ref<CalendarEventItem[]>([]);
 const selectingEventIndex = ref<number | null>(null);
+const pendingConfirmText = ref('');
+const confirmingAction = ref(false);
 const reminders = ref<ReminderTask[]>([]);
 const browserNotificationPermission = ref<BrowserNotificationPermission>(getBrowserNotificationPermission());
 const notifiedReminderIds = new Set<number>();
@@ -201,7 +212,35 @@ async function sendConversationMessage(text: string, inputType: InputType): Prom
 
 async function handleCancel(): Promise<void> {
   if (!confirmToken.value) return;
-  await sendConversationMessage('取消', 'TEXT');
+  appendMessage('USER', '取消', 'TEXT');
+  status.value = 'EXECUTING';
+  try {
+    await applyAgentResponse(await cancelAgent({
+      userId: DEFAULT_USER_ID,
+      sessionId,
+      confirmToken: confirmToken.value,
+    }));
+  } catch (error) {
+    handleRequestError(error);
+  }
+}
+
+async function handleConfirm(): Promise<void> {
+  if (!confirmToken.value) return;
+  confirmingAction.value = true;
+  appendMessage('USER', '确认', 'TEXT');
+  status.value = 'EXECUTING';
+  try {
+    await applyAgentResponse(await confirmAgent({
+      userId: DEFAULT_USER_ID,
+      sessionId,
+      confirmToken: confirmToken.value,
+    }));
+  } catch (error) {
+    handleRequestError(error);
+  } finally {
+    confirmingAction.value = false;
+  }
 }
 
 async function handleSelectSlot(slotIndex: number): Promise<void> {
@@ -247,6 +286,9 @@ async function applyAgentResponse(response: AgentResponse): Promise<void> {
   confirmToken.value = response.confirmToken ?? '';
   conflictSlots.value = extractSuggestedSlots(response);
   eventCandidates.value = extractEventCandidates(response);
+  pendingConfirmText.value = response.needConfirm && !response.needEventSelection && !conflictSlots.value.length
+    ? response.replyText
+    : '';
   appendMessage('ASSISTANT', response.replyText);
   if (response.needConfirm || response.needEventSelection) status.value = 'WAITING_CONFIRM';
   else if (response.needClarify) status.value = 'RECOGNIZED';
@@ -276,6 +318,7 @@ function clearPendingSelection(): void {
   confirmToken.value = '';
   conflictSlots.value = [];
   eventCandidates.value = [];
+  pendingConfirmText.value = '';
 }
 
 function extractSuggestedSlots(response: AgentResponse): SuggestedSlot[] {
@@ -319,7 +362,7 @@ async function refreshReminders(): Promise<void> {
   try {
     const tasks = await listReminderTasks(DEFAULT_USER_ID);
     reminders.value = tasks;
-    const executed = tasks.filter((reminder) => reminder.status === 'EXECUTED');
+    const executed = tasks.filter((reminder) => reminder.jobType === 'IN_APP' && reminder.status === 'EXECUTED');
     if (!reminderPollingInitialized) {
       executed.forEach((reminder) => notifiedReminderIds.add(reminder.id));
       reminderPollingInitialized = true;
@@ -328,10 +371,10 @@ async function refreshReminders(): Promise<void> {
     for (const reminder of executed) {
       if (notifiedReminderIds.has(reminder.id)) continue;
       notifiedReminderIds.add(reminder.id);
-      const title = resolveReminderTitle(reminder);
-      ElNotification({ title: '日程提醒', message: title, type: 'warning', duration: 0 });
-      showBrowserNotification('日程提醒', title);
-      await speak(`日程提醒：${title}`);
+      const message = resolveReminderMessage(reminder);
+      ElNotification({ title: '日程提醒', message, type: 'warning', duration: 0 });
+      showBrowserNotification('日程提醒', message);
+      await speak(`日程提醒：${message}`);
     }
   } catch (error) {
     console.error('Reminder refresh failed', error);
@@ -367,11 +410,12 @@ async function handleClearReminders(): Promise<void> {
   }
 }
 
-function resolveReminderTitle(reminder: ReminderTask): string {
+function resolveReminderMessage(reminder: ReminderTask): string {
   if (!reminder.jobPayloadJson) return `日程 ${reminder.eventId} 即将开始`;
   try {
-    const payload = JSON.parse(reminder.jobPayloadJson) as { title?: string };
-    return payload.title ? `${payload.title} 即将开始` : `日程 ${reminder.eventId} 即将开始`;
+    const payload = JSON.parse(reminder.jobPayloadJson) as { title?: string; description?: string };
+    if (!payload.title) return `日程 ${reminder.eventId} 即将开始`;
+    return payload.description ? `${payload.title}：${payload.description}` : `${payload.title} 即将开始`;
   } catch {
     return `日程 ${reminder.eventId} 即将开始`;
   }

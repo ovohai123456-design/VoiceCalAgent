@@ -9,6 +9,7 @@ public class EventResolveRequest {
     private Long userId;
     private String titleKeyword;
     private String reference;
+    private Boolean deleteAllMatches;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime rangeStart;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -35,6 +36,14 @@ public class EventResolveRequest {
 
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
+
+    public Boolean getDeleteAllMatches() {
+        return deleteAllMatches;
+    }
+
+    public void setDeleteAllMatches(Boolean deleteAllMatches) {
+        this.deleteAllMatches = deleteAllMatches;
+    }
 
     public LocalDateTime getRangeStart() {
         return rangeStart;

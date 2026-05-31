@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Duration;
 import java.time.DateTimeException;
 import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
@@ -30,6 +31,8 @@ public class RouterAgent {
     private static final Pattern HOUR_PATTERN = Pattern.compile("(凌晨|早上|上午|中午|下午|晚上)?([0-9]{1,2}|[一二两三四五六七八九十]{1,3})点");
     private static final Pattern MONTH_DAY_PATTERN = Pattern.compile("(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})(?:号|日)?");
     private static final Pattern DAY_OF_MONTH_PATTERN = Pattern.compile("(?<!\\d)(\\d{1,2})(?:号|日)");
+    private static final Pattern RELATIVE_MINUTES_PATTERN = Pattern.compile("([0-9]+)\\s*分钟(?:之后|以后|后)");
+    private static final Pattern DURATION_PATTERN = Pattern.compile("(?:时长|持续)(?:为|是)?\\s*([0-9]+)\\s*(小时|分钟)");
     private static final String DATE_EXPRESSION_REGEX = "(今天|明天|后天|(?:[0-9]{4}年)?[0-9]{1,2}月[0-9]{1,2}[号日]?|[0-9]{1,2}[号日])";
     private static final Pattern SMS_RECEIVER_PATTERN = Pattern.compile(
             "(?:短信提醒|发短信给)([\\u4e00-\\u9fa5A-Za-z0-9_]{1,20})"
@@ -212,6 +215,7 @@ public class RouterAgent {
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         resolveRequest.setTitleKeyword(parseDeleteTitle(request.getText()));
         fillResolveRangeIfPresent(resolveRequest, explicitTargetDate != null, targetDate, targetTime);
+        markDeleteAllMatches(resolveRequest, request.getText());
         plan.setEventResolveRequest(resolveRequest);
         ensureResolveCriteria(plan);
         plan.getSteps().add(AgentPlanStep.of(1, "RouterAgent", "ROUTE", "router.route"));
@@ -291,6 +295,7 @@ public class RouterAgent {
             resolveRequest.setTitleKeyword(parseDeleteTitle(request.getText()));
             ensureResolveCriteria(plan);
         }
+        markDeleteAllMatches(resolveRequest, request.getText());
     }
 
     private void ensureResolveCriteria(AgentPlan plan) {
@@ -319,6 +324,11 @@ public class RouterAgent {
     }
 
     private TimeRange parseTimeRange(String text, LocalDateTime currentTime) {
+        LocalDateTime relativeStart = parseRelativeStart(text, currentTime);
+        if (relativeStart != null) {
+            Duration duration = parseExplicitDuration(text);
+            return new TimeRange(relativeStart, duration == null ? null : relativeStart.plus(duration));
+        }
         LocalDate date = parseDate(text, currentTime.toLocalDate());
         Matcher matcher = HOUR_PATTERN.matcher(text);
         if (!matcher.find()) {
@@ -332,6 +342,20 @@ public class RouterAgent {
             end = parseMatchedHour(StringUtils.hasText(secondPeriod) ? secondPeriod : firstPeriod, matcher.group(2));
         }
         return new TimeRange(date.atTime(start), end == null ? null : date.atTime(end));
+    }
+
+    private LocalDateTime parseRelativeStart(String text, LocalDateTime currentTime) {
+        Matcher matcher = RELATIVE_MINUTES_PATTERN.matcher(text);
+        return matcher.find() ? currentTime.plusMinutes(Long.parseLong(matcher.group(1))) : null;
+    }
+
+    private Duration parseExplicitDuration(String text) {
+        Matcher matcher = DURATION_PATTERN.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        long amount = Long.parseLong(matcher.group(1));
+        return "小时".equals(matcher.group(2)) ? Duration.ofHours(amount) : Duration.ofMinutes(amount);
     }
 
     private LocalDate parseDate(String text, LocalDate today) {
@@ -446,6 +470,8 @@ public class RouterAgent {
         String title = text
                 .replaceAll(DATE_EXPRESSION_REGEX, "")
                 .replaceAll("(凌晨|早上|上午|中午|下午|晚上)?([0-9]{1,2}|[一二两三四五六七八九十]{1,3})点", "")
+                .replaceAll("[0-9]+\\s*分钟(?:之后|以后|后)", "")
+                .replaceAll("(?:时长|持续)(?:为|是)?\\s*[0-9]+\\s*(?:小时|分钟)", "")
                 .replace("提醒我", "")
                 .replace("帮我", "")
                 .replace("创建", "")
@@ -503,6 +529,25 @@ public class RouterAgent {
                 .replace("日程", "")
                 .replaceAll("[，。,.？?！!\\s]", "")
                 .trim();
+    }
+
+    private void markDeleteAllMatches(EventResolveRequest request, String text) {
+        if (request == null) {
+            return;
+        }
+        if (isGenericDeleteTitle(request.getTitleKeyword())) {
+            request.setTitleKeyword(null);
+        }
+        boolean hasRange = request.getRangeStart() != null && request.getRangeEnd() != null;
+        boolean hasSingleTarget = StringUtils.hasText(request.getTitleKeyword())
+                || StringUtils.hasText(request.getReference())
+                || request.getEventId() != null;
+        boolean explicitlyAll = StringUtils.hasText(text) && (text.contains("所有") || text.contains("全部"));
+        request.setDeleteAllMatches(hasRange && (!hasSingleTarget || explicitlyAll));
+    }
+
+    private boolean isGenericDeleteTitle(String title) {
+        return "日程".equals(title) || "安排".equals(title) || "所有日程".equals(title) || "全部日程".equals(title);
     }
 
     private boolean containsOnlineMeetingIntent(String text) {

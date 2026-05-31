@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -296,6 +297,21 @@ public class CalendarServiceImpl implements CalendarService {
             reminderJobService.deleteForEvent(eventId);
         }
         return deleted;
+    }
+
+    @Override
+    @Transactional
+    public int deleteEvents(List<Long> eventIds, Long userId) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return 0;
+        }
+        int deletedCount = 0;
+        for (Long eventId : new LinkedHashSet<>(eventIds)) {
+            if (eventId != null && deleteEvent(eventId, userId)) {
+                deletedCount++;
+            }
+        }
+        return deletedCount;
     }
 
     @Override

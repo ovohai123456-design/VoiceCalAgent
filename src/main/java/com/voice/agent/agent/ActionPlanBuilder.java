@@ -44,21 +44,6 @@ public class ActionPlanBuilder {
             sms.setOnFailure("CONTINUE");
             steps.add(sms);
         }
-        if (StringUtils.hasText(request.getEmailReceiver())
-                && request.getReminderMinutes() != null
-                && request.getReminderMinutes() > 0) {
-            Map<String, Object> emailArguments = new LinkedHashMap<>();
-            emailArguments.put("user_id", request.getUserId());
-            emailArguments.put("event_id", event.getId());
-            emailArguments.put("receiver", request.getEmailReceiver());
-            emailArguments.put("content", StringUtils.hasText(request.getEmailContent())
-                    ? request.getEmailContent()
-                    : "日程提醒：" + event.getTitle() + "，时间：" + event.getStartTime());
-            emailArguments.put("run_at", event.getStartTime().minusMinutes(request.getReminderMinutes()).toString());
-            ToolActionStep email = ToolActionStep.of(40, "email.schedule", "email", emailArguments);
-            email.setOnFailure("CONTINUE");
-            steps.add(email);
-        }
         return steps;
     }
 

@@ -36,6 +36,6 @@ class ActionPlanBuilderTest {
         assertEquals("contact.query", after.get(0).getSkillId());
         assertEquals("sms.send", after.get(1).getSkillId());
         assertEquals("CONTINUE", after.get(1).getOnFailure());
-        assertEquals("email.schedule", after.get(2).getSkillId());
+        assertEquals(2, after.size());
     }
 }

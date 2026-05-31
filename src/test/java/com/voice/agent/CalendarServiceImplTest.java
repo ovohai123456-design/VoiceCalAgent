@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class CalendarServiceImplTest {
@@ -89,6 +90,19 @@ class CalendarServiceImplTest {
 
         verify(calendarEventMapper).softDeleteSeries("series_test", 1L);
         verify(reminderJobService).deleteForSeries("series_test");
+    }
+
+    @Test
+    void shouldDeleteEverySelectedEventAndItsReminderJobs() {
+        when(calendarEventMapper.selectOne(any()))
+                .thenReturn(created(10L, 0), created(11L, 1));
+        when(calendarEventMapper.updateById(any(CalendarEventEntity.class))).thenReturn(1);
+
+        assertEquals(2, service.deleteEvents(Arrays.asList(10L, 11L), 1L));
+
+        verify(reminderJobService).deleteForEvent(10L);
+        verify(reminderJobService).deleteForEvent(11L);
+        verify(calendarEventMapper, times(2)).updateById(any(CalendarEventEntity.class));
     }
 
     private CalendarEventEntity created(Long id, Integer index) {

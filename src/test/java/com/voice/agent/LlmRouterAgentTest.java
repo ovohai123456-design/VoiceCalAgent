@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -100,9 +101,47 @@ class LlmRouterAgentTest {
     }
 
     @Test
+    void shouldUseDefaultDurationWhenRelativeOffsetWasMistakenForDuration() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"腾讯会议\","
+                        + "\"startTime\":\"2026-05-31 18:12:00\","
+                        + "\"endTime\":\"2026-05-31 18:24:00\",\"onlineMeeting\":true}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("创建一个12分钟之后的腾讯会议");
+        request.setCurrentTime("2026-05-31 18:00:00");
+
+        assertEquals(
+                LocalDateTime.of(2026, 5, 31, 18, 12),
+                routerAgent.route(request).getCreateEventRequest().getStartTime()
+        );
+        assertNull(routerAgent.route(request).getCreateEventRequest().getEndTime());
+    }
+
+    @Test
+    void shouldApplyExplicitDurationToRelativeStartTime() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"腾讯会议\","
+                        + "\"startTime\":\"2026-05-31 18:12:00\","
+                        + "\"endTime\":\"2026-05-31 18:24:00\",\"onlineMeeting\":true}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("创建一个12分钟之后时长为2小时的腾讯会议");
+        request.setCurrentTime("2026-05-31 18:00:00");
+
+        assertEquals(
+                LocalDateTime.of(2026, 5, 31, 20, 12),
+                routerAgent.route(request).getCreateEventRequest().getEndTime()
+        );
+    }
+
+    @Test
     void shouldAllowDeleteByTimeRangeWithoutTitle() {
         when(jsonExtractor.extractObject("raw")).thenReturn(
                 "{\"intent\":\"DELETE_EVENT\",\"slots\":{"
+                        + "\"targetTitle\":\"日程\","
                         + "\"targetStartTime\":\"2026-05-29 00:00:00\","
                         + "\"targetEndTime\":\"2026-05-30 00:00:00\"},"
                         + "\"missingFields\":[\"title\"]}"
@@ -121,6 +160,7 @@ class LlmRouterAgentTest {
                 LocalDateTime.of(2026, 5, 31, 0, 0),
                 routerAgent.route(request).getEventResolveRequest().getRangeEnd()
         );
+        assertTrue(routerAgent.route(request).getEventResolveRequest().getDeleteAllMatches());
     }
 
     @Test

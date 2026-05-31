@@ -53,6 +53,8 @@ public class CalendarEmailService {
         payload.put("user_id", event.getUserId());
         payload.put("event_id", event.getId());
         payload.put("receiver", receiver);
+        payload.put("title", event.getTitle());
+        payload.put("description", event.getDescription());
         payload.put("subject", "VoiceCal 日程提醒：" + event.getTitle());
         payload.put("content", StringUtils.hasText(requestedContent)
                 ? requestedContent.trim()

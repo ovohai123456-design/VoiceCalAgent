@@ -72,6 +72,7 @@ class RouterAgentTest {
         assertEquals(LocalDateTime.of(2026, 5, 30, 0, 0), plan.getEventResolveRequest().getRangeStart());
         assertEquals(LocalDateTime.of(2026, 5, 31, 0, 0), plan.getEventResolveRequest().getRangeEnd());
         assertFalse(plan.getMissingFields().contains("title"));
+        assertTrue(plan.getEventResolveRequest().getDeleteAllMatches());
     }
 
     @Test
@@ -186,6 +187,22 @@ class RouterAgentTest {
         assertEquals(AgentConstants.INTENT_CREATE_EVENT, plan.getIntent());
         assertEquals("腾讯会议", plan.getCreateEventRequest().getTitle());
         assertTrue(plan.getCreateEventRequest().getOnlineMeeting());
+    }
+
+    @Test
+    void fallbackCreateShouldTreatRelativeMinutesAsStartOffset() {
+        AgentPlan plan = routerAgent.route(request("帮我创建一个12分钟之后的腾讯会议"));
+
+        assertEquals(LocalDateTime.of(2026, 5, 30, 10, 12), plan.getCreateEventRequest().getStartTime());
+        assertNull(plan.getCreateEventRequest().getEndTime());
+    }
+
+    @Test
+    void fallbackCreateShouldApplyExplicitDurationAfterRelativeOffset() {
+        AgentPlan plan = routerAgent.route(request("帮我创建一个12分钟之后时长为2小时的腾讯会议"));
+
+        assertEquals(LocalDateTime.of(2026, 5, 30, 10, 12), plan.getCreateEventRequest().getStartTime());
+        assertEquals(LocalDateTime.of(2026, 5, 30, 12, 12), plan.getCreateEventRequest().getEndTime());
     }
 
     @Test
