@@ -19,7 +19,6 @@ export type PageStatus =
   | 'CANCELLED';
 
 export interface AgentExecuteRequest {
-  userId: string;
   sessionId: string;
   inputType: InputType;
   text: string;
@@ -28,26 +27,22 @@ export interface AgentExecuteRequest {
 }
 
 export interface AgentConfirmRequest {
-  userId: string;
   sessionId: string;
   confirmToken: string;
 }
 
 export interface AgentCancelRequest {
-  userId: string;
   sessionId: string;
   confirmToken: string;
 }
 
 export interface AgentSelectSlotRequest {
-  userId: string;
   sessionId: string;
   confirmToken: string;
   slotIndex: number;
 }
 
 export interface AgentSelectEventRequest {
-  userId: string;
   sessionId: string;
   confirmToken: string;
   candidateIndex: number;

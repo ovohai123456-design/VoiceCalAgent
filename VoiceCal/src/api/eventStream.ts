@@ -17,15 +17,14 @@ export interface AgentEventHandlers {
 }
 
 export function subscribeAgentEvents(
-  userId: string,
   sessionId: string,
   handlers: AgentEventHandlers,
 ): () => void {
   if (USE_MOCK) return () => undefined;
 
   const baseUrl = String(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
-  const params = new URLSearchParams({ userId, sessionId });
-  const source = new EventSource(`${baseUrl}/api/events/stream?${params.toString()}`);
+  const params = new URLSearchParams({ sessionId });
+  const source = new EventSource(`${baseUrl}/api/events/stream?${params.toString()}`, { withCredentials: true });
 
   addJsonListener<TaskStatusEvent>(source, 'task-status', handlers.onTaskStatus);
   addJsonListener<WorkflowStep>(source, 'workflow-step', handlers.onWorkflowStep);

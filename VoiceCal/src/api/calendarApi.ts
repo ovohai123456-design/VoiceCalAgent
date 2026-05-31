@@ -85,12 +85,11 @@ export async function updateCalendarEvent(
 
 export async function deleteCalendarEvent(
   eventId: string | number,
-  userId: string,
   scope: 'SINGLE' | 'SERIES' = 'SINGLE',
 ): Promise<boolean> {
   const { data } = await http.delete<boolean | { data: boolean; success: boolean; message?: string }>(
     `/api/calendar/events/${eventId}`,
-    { params: { userId, scope } },
+    { params: { scope } },
   );
   return unwrapApiResponse(data);
 }

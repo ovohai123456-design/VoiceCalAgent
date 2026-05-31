@@ -18,7 +18,6 @@ export interface CalendarEventItem {
 }
 
 export interface CalendarQueryParams {
-  userId: string;
   startTime: string;
   endTime: string;
   keyword?: string;
@@ -26,7 +25,6 @@ export interface CalendarQueryParams {
 }
 
 export interface CalendarEventUpdateRequest {
-  userId: string;
   title?: string;
   startTime?: string;
   endTime?: string;

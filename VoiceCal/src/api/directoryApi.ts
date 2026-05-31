@@ -2,24 +2,22 @@ import { http, unwrapApiResponse } from '@/api/http';
 
 export interface ContactItem {
   id?: number;
-  userId: number;
+  userId?: number;
   name: string;
   phone?: string;
   email?: string;
 }
 
 export interface UserPreference {
-  userId: number;
+  userId?: number;
   defaultDurationMinutes?: number;
   defaultReminderMinutes?: number;
   defaultLocation?: string;
   defaultEmail?: string;
 }
 
-export async function listContacts(userId: string): Promise<ContactItem[]> {
-  const { data } = await http.get<ContactItem[] | { success: boolean; data: ContactItem[] }>('/api/contacts', {
-    params: { userId },
-  });
+export async function listContacts(): Promise<ContactItem[]> {
+  const { data } = await http.get<ContactItem[] | { success: boolean; data: ContactItem[] }>('/api/contacts');
   return Array.isArray(data) ? data : unwrapApiResponse(data);
 }
 
@@ -28,17 +26,13 @@ export async function saveContact(contact: ContactItem): Promise<ContactItem> {
   return unwrapApiResponse(data);
 }
 
-export async function deleteContact(id: number, userId: string): Promise<boolean> {
-  const { data } = await http.delete<boolean | { success: boolean; data: boolean }>(`/api/contacts/${id}`, {
-    params: { userId },
-  });
+export async function deleteContact(id: number): Promise<boolean> {
+  const { data } = await http.delete<boolean | { success: boolean; data: boolean }>(`/api/contacts/${id}`);
   return unwrapApiResponse(data);
 }
 
-export async function getUserPreference(userId: string): Promise<UserPreference> {
-  const { data } = await http.get<UserPreference | { success: boolean; data: UserPreference }>('/api/preferences', {
-    params: { userId },
-  });
+export async function getUserPreference(): Promise<UserPreference> {
+  const { data } = await http.get<UserPreference | { success: boolean; data: UserPreference }>('/api/preferences');
   return unwrapApiResponse(data);
 }
 

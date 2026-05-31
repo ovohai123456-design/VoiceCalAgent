@@ -1,4 +1,3 @@
-export const DEFAULT_USER_ID = '1';
 export const DEFAULT_TIMEZONE = 'Asia/Shanghai';
 const SESSION_STORAGE_KEY = 'voicecal.session-id';
 

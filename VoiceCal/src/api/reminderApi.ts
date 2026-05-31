@@ -17,10 +17,9 @@ export interface ReminderTask {
   createdAt: string;
 }
 
-export async function listReminderTasks(userId: string): Promise<ReminderTask[]> {
+export async function listReminderTasks(): Promise<ReminderTask[]> {
   const { data } = await http.get<ReminderTask[] | { data: ReminderTask[]; success: boolean; message?: string }>(
     '/api/reminders',
-    { params: { userId } },
   );
 
   if (Array.isArray(data)) {
@@ -30,19 +29,17 @@ export async function listReminderTasks(userId: string): Promise<ReminderTask[]>
   return unwrapApiResponse(data);
 }
 
-export async function deleteReminderTask(reminderId: number, userId: string): Promise<number> {
+export async function deleteReminderTask(reminderId: number): Promise<number> {
   const { data } = await http.delete<number | { data: number; success: boolean; message?: string }>(
     `/api/reminders/${reminderId}`,
-    { params: { userId } },
   );
 
   return typeof data === 'number' ? data : unwrapApiResponse(data);
 }
 
-export async function clearReminderTasks(userId: string): Promise<number> {
+export async function clearReminderTasks(): Promise<number> {
   const { data } = await http.delete<number | { data: number; success: boolean; message?: string }>(
     '/api/reminders',
-    { params: { userId } },
   );
 
   return typeof data === 'number' ? data : unwrapApiResponse(data);
