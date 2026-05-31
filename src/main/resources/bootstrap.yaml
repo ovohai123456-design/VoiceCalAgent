@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: voicecal-agent
+
+  profiles:
+    active: dev
+
+  cloud:
+    nacos:
+      server-addr: 62.234.45.155:8848
+      config:
+        file-extension: yaml
+        shared-configs:
+          - data-id: share.yml
+            group: DEFAULT_GROUP
+            refresh: true
