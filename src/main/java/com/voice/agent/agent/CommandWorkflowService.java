@@ -11,6 +11,8 @@ import com.voice.agent.model.entity.ExecutionLogEntity;
 import com.voice.agent.model.vo.ExecutionLogVO;
 import com.voice.agent.stream.AgentEventStreamService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
@@ -48,6 +50,7 @@ public class CommandWorkflowService {
         this.eventStreamService = eventStreamService;
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CommandTaskEntity createTask(AgentExecuteRequest request) {
         CommandTaskEntity task = new CommandTaskEntity();
         task.setTaskId("task_" + UUID.randomUUID().toString().replace("-", ""));
@@ -58,7 +61,7 @@ public class CommandWorkflowService {
         task.setStatus(AgentConstants.STATUS_RUNNING);
         task.setStartedAt(LocalDateTime.now());
         commandTaskMapper.insert(task);
-        eventStreamService.registerTask(task);
+        registerTaskAfterCommit(task);
         return task;
     }
 
@@ -244,6 +247,19 @@ public class CommandWorkflowService {
             @Override
             public void afterCommit() {
                 executionLogWriter.write(step);
+            }
+        });
+    }
+
+    private void registerTaskAfterCommit(CommandTaskEntity task) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            eventStreamService.registerTask(task);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eventStreamService.registerTask(task);
             }
         });
     }

@@ -25,7 +25,7 @@ http.interceptors.response.use(
 );
 
 export function unwrapApiResponse<T>(payload: ApiResponseEnvelope<T> | T): T {
-  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+  if (payload && typeof payload === 'object' && 'success' in payload && 'code' in payload) {
     const response = payload as ApiResponseEnvelope<T>;
     if (!response.success) {
       throw new Error(response.message || '系统请求失败，请稍后重试。');
