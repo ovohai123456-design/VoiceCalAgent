@@ -6,17 +6,28 @@
   <component name="ChangeListManager">
     <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CommandWorkflowService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CommandWorkflowService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/ReminderJobMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/ReminderJobMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ActionPlanBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ActionPlanBuilder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ConversationMemoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ConversationMemoryService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/DefaultValueResolver.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/DefaultValueResolver.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/RouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/RouterAgent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/ConversationSessionContextEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/ConversationSessionContextEntity.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/ReminderJobService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/ReminderJobService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/impl/CalendarServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/impl/CalendarServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillValidator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillValidator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/ToolAdapterFactory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/ToolAdapterFactory.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/prompts/router-agent-prompt.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/prompts/router-agent-prompt.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/schema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/schema.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/CommandWorkflowServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/CommandWorkflowServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/weather-query.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/weather-query.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/AgentApplicationServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/AgentApplicationServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/CalendarServiceImplTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/CalendarServiceImplTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/ReminderJobServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/ReminderJobServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/RouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/RouterAgentTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/SkillRegistryTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/SkillRegistryTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -24,7 +35,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="202" />
+    <option name="cachedIndexableFilesCount" value="210" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -54,45 +65,48 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;JUnit.AgentRouteTest.executeAgentRouteShouldReturnAgentResponse.executor&quot;: &quot;Run&quot;,
-    &quot;JUnit.ApiTest.api_test.executor&quot;: &quot;Run&quot;,
-    &quot;Maven.VoiceCalAgent [clean].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.VoiceCalAgent [install].executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
-    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
-    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
-    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;Spring Boot.VoiceApplication.executor&quot;: &quot;Run&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/BaiduNetdiskDownload/2026/AI/VoiceCalAgent&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.43843496&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.tools&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;F:\\BaiduNetdiskDownload\\2026\\AI\\VoiceCalAgent\\VoiceCal\\node_modules\\typescript\\lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "JUnit.AgentRouteTest.executeAgentRouteShouldReturnAgentResponse.executor": "Run",
+    "JUnit.ApiTest.api_test.executor": "Run",
+    "Maven.VoiceCalAgent [clean].executor": "Run",
+    "Maven.VoiceCalAgent [install].executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Spring Boot.VoiceApplication.executor": "Debug",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "master",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "F:/BaiduNetdiskDownload/2026/AI/VoiceCalAgent",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Project",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.43843496",
+    "settings.editor.selected.configurable": "configurable.group.tools",
+    "ts.external.directory.path": "D:\\Java147\\code\\VoiceCalAgent\\VoiceCal\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;mysql&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "mysql"
     ]
   }
-}</component>
+}]]></component>
+  <component name="ReactorSettings">
+    <option name="notificationShown" value="true" />
+  </component>
   <component name="RunManager" selected="Spring Boot.VoiceApplication">
     <configuration name="AgentRouteTest.executeAgentRouteShouldReturnAgentResponse" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
       <module name="VoiceCalAgent" />
@@ -230,7 +244,18 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="实体类，VO，DTO" />
     <MESSAGE value="mapper, service, controller" />
-    <option name="LAST_COMMIT_MESSAGE" value="mapper, service, controller" />
+    <MESSAGE value="entity" />
+    <MESSAGE value="llm" />
+    <MESSAGE value="agent" />
+    <MESSAGE value="controller" />
+    <MESSAGE value="mapper" />
+    <MESSAGE value="service" />
+    <MESSAGE value="init" />
+    <MESSAGE value="agent1" />
+    <MESSAGE value="mapper1" />
+    <MESSAGE value="dto" />
+    <MESSAGE value="提示词" />
+    <option name="LAST_COMMIT_MESSAGE" value="提示词" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

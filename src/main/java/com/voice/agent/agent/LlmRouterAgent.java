@@ -47,6 +47,15 @@ public class LlmRouterAgent {
     private static final Pattern SMS_RECEIVER_PATTERN = Pattern.compile(
             "(?:短信提醒|发短信给)([\\u4e00-\\u9fa5A-Za-z0-9_]{1,20})"
     );
+    private static final Pattern WEATHER_FILLER_PATTERN = Pattern.compile(
+            "(请问|请|帮我|告诉我|查一下|查询|查查|查|看一下|看看|当前|现在|今天|今日|明天|后天|未来|"
+                    + "天气预报|天气|气温|温度|情况|怎么样|如何|是什么|一下|的)"
+    );
+    private static final Pattern NAVIGATION_PATTERN = Pattern.compile("(?:导航到|带我去|前往|去)(.+)");
+    private static final Pattern QUERY_TIME_HINT_PATTERN = Pattern.compile(
+            "(今天|明天|后天|凌晨|早上|上午|中午|下午|晚上|未来|本周|这周|下周|本月|这个月|下个月|今年|"
+                    + "[0-9]{1,4}[年/-]|[0-9]{1,2}(?:月|号|日|点))"
+    );
 
     private final LlmClient llmClient;
     private final LlmJsonExtractor jsonExtractor;
@@ -136,6 +145,7 @@ public class LlmRouterAgent {
             if (plan.getToolSteps().isEmpty()) {
                 plan.getMissingFields().add("skill_calls");
             }
+            validateExplicitToolArguments(plan, request);
         } else {
             plan.setIntent(AgentConstants.INTENT_UNKNOWN);
             if (plan.getMissingFields().isEmpty()) {
@@ -143,6 +153,61 @@ public class LlmRouterAgent {
             }
         }
         return plan;
+    }
+
+    /**
+     * 对直接执行的工具参数做最小可信校验，避免模型自行补出用户没有提供的地点。
+     */
+    private void validateExplicitToolArguments(AgentPlan plan, AgentExecuteRequest request) {
+        for (ToolActionStep step : plan.getToolSteps()) {
+            if ("weather.query".equals(step.getSkillId())) {
+                requireExplicitArgument(plan, step, "location", extractWeatherLocation(request));
+            } else if ("navigation.route".equals(step.getSkillId())) {
+                requireExplicitArgument(plan, step, "destination", extractNavigationDestination(request));
+            }
+        }
+    }
+
+    private void requireExplicitArgument(
+            AgentPlan plan,
+            ToolActionStep step,
+            String argumentName,
+            String explicitValue
+    ) {
+        Map<String, Object> arguments = step.getArguments();
+        if (arguments == null) {
+            arguments = new HashMap<>();
+            step.setArguments(arguments);
+        }
+        if (StringUtils.hasText(explicitValue)) {
+            arguments.put(argumentName, explicitValue);
+            return;
+        }
+        arguments.remove(argumentName);
+        if (!plan.getMissingFields().contains(argumentName)) {
+            plan.getMissingFields().add(argumentName);
+        }
+    }
+
+    private String extractWeatherLocation(AgentExecuteRequest request) {
+        if (request == null || !StringUtils.hasText(request.getText())) {
+            return null;
+        }
+        String location = WEATHER_FILLER_PATTERN.matcher(request.getText()).replaceAll("");
+        location = location.replaceAll("[\\s,，。！？?；;：:]+", "").trim();
+        return StringUtils.hasText(location) ? location : null;
+    }
+
+    private String extractNavigationDestination(AgentExecuteRequest request) {
+        if (request == null || !StringUtils.hasText(request.getText())) {
+            return null;
+        }
+        Matcher matcher = NAVIGATION_PATTERN.matcher(request.getText());
+        if (!matcher.find()) {
+            return null;
+        }
+        String destination = matcher.group(1).replaceAll("[\\s,，。！？?；;：:]+$", "").trim();
+        return StringUtils.hasText(destination) ? destination : null;
     }
 
     private void fillCreatePlan(AgentPlan plan, RouterSlots slots, AgentExecuteRequest request) {
@@ -191,19 +256,26 @@ public class LlmRouterAgent {
 
         QueryEventRequest queryRequest = new QueryEventRequest();
         queryRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
-        LocalDateTime rawStartTime = parseDateTime(slots.getQueryStartTime());
-        LocalDateTime rawEndTime = parseDateTime(slots.getQueryEndTime());
-        LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
-        queryRequest.setStartTime(startTime);
-        queryRequest.setEndTime(normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request));
-        queryRequest.setKeyword(trimToNull(slots.getKeyword()));
+        boolean allEvents = isAllEventQuery(request.getText());
+        if (!allEvents) {
+            LocalDateTime rawStartTime = parseDateTime(slots.getQueryStartTime());
+            LocalDateTime rawEndTime = parseDateTime(slots.getQueryEndTime());
+            LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
+            queryRequest.setStartTime(startTime);
+            queryRequest.setEndTime(normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request));
+            queryRequest.setKeyword(trimToNull(slots.getKeyword()));
+        }
         plan.setQueryEventRequest(queryRequest);
 
-        if (queryRequest.getStartTime() == null && !plan.getMissingFields().contains("start_time")) {
-            plan.getMissingFields().add("start_time");
-        }
-        if (queryRequest.getEndTime() == null && !plan.getMissingFields().contains("end_time")) {
-            plan.getMissingFields().add("end_time");
+        if (allEvents) {
+            plan.getMissingFields().removeIf(field -> "start_time".equals(field) || "end_time".equals(field));
+        } else {
+            if (queryRequest.getStartTime() == null && !plan.getMissingFields().contains("start_time")) {
+                plan.getMissingFields().add("start_time");
+            }
+            if (queryRequest.getEndTime() == null && !plan.getMissingFields().contains("end_time")) {
+                plan.getMissingFields().add("end_time");
+            }
         }
         ensureQuerySteps(plan);
     }
@@ -457,6 +529,20 @@ public class LlmRouterAgent {
             }
         }
         return new ArrayList<>(normalized);
+    }
+
+    private boolean isAllEventQuery(String text) {
+        return StringUtils.hasText(text)
+                && (text.contains("\u6240\u6709\u65e5\u7a0b")
+                || text.contains("\u5168\u90e8\u65e5\u7a0b")
+                || text.contains("\u6240\u6709\u7684\u65e5\u7a0b")
+                || text.contains("\u5168\u90e8\u7684\u65e5\u7a0b")
+                || text.contains("\u6240\u6709\u5b89\u6392")
+                || text.contains("\u5168\u90e8\u5b89\u6392")
+                || text.contains("\u6240\u6709\u7684\u5b89\u6392")
+                || text.contains("\u5168\u90e8\u7684\u5b89\u6392")
+                || text.contains("\u65e5\u7a0b\u5217\u8868"))
+                && !QUERY_TIME_HINT_PATTERN.matcher(text).find();
     }
 
     private boolean containsOnlineMeetingIntent(String text) {

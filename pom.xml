@@ -60,6 +60,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- SMTP email delivery -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Nacos 服务注册发现 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>

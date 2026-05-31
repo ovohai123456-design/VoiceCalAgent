@@ -44,7 +44,9 @@ public class ActionPlanBuilder {
             sms.setOnFailure("CONTINUE");
             steps.add(sms);
         }
-        if (StringUtils.hasText(request.getEmailReceiver())) {
+        if (StringUtils.hasText(request.getEmailReceiver())
+                && request.getReminderMinutes() != null
+                && request.getReminderMinutes() > 0) {
             Map<String, Object> emailArguments = new LinkedHashMap<>();
             emailArguments.put("user_id", request.getUserId());
             emailArguments.put("event_id", event.getId());

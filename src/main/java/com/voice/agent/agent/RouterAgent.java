@@ -34,6 +34,10 @@ public class RouterAgent {
     private static final Pattern SMS_RECEIVER_PATTERN = Pattern.compile(
             "(?:短信提醒|发短信给)([\\u4e00-\\u9fa5A-Za-z0-9_]{1,20})"
     );
+    private static final Pattern QUERY_TIME_HINT_PATTERN = Pattern.compile(
+            "(今天|明天|后天|凌晨|早上|上午|中午|下午|晚上|未来|本周|这周|下周|本月|这个月|下个月|今年|"
+                    + "[0-9]{1,4}[年/-]|[0-9]{1,2}(?:月|号|日|点))"
+    );
 
     private final DefaultValueResolver defaultValueResolver;
     private final LlmRouterAgent llmRouterAgent;
@@ -136,12 +140,14 @@ public class RouterAgent {
 
         QueryEventRequest queryRequest = new QueryEventRequest();
         queryRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
-        if (request.getText().contains("下午")) {
-            queryRequest.setStartTime(date.atTime(12, 0));
-            queryRequest.setEndTime(date.atTime(18, 0));
-        } else {
-            queryRequest.setStartTime(date.atStartOfDay());
-            queryRequest.setEndTime(date.plusDays(1).atStartOfDay());
+        if (!isAllEventQuery(request.getText())) {
+            if (request.getText().contains("下午")) {
+                queryRequest.setStartTime(date.atTime(12, 0));
+                queryRequest.setEndTime(date.atTime(18, 0));
+            } else {
+                queryRequest.setStartTime(date.atStartOfDay());
+                queryRequest.setEndTime(date.plusDays(1).atStartOfDay());
+            }
         }
 
         AgentPlan plan = baseCalendarPlan(AgentConstants.INTENT_QUERY_EVENT, AgentConstants.ACTION_QUERY_EVENT, false);
@@ -225,6 +231,20 @@ public class RouterAgent {
 
     private boolean isQuery(String text) {
         return text.contains("有什么安排") || text.contains("查") || text.contains("查询") || text.endsWith("日程");
+    }
+
+    private boolean isAllEventQuery(String text) {
+        return StringUtils.hasText(text)
+                && (text.contains("\u6240\u6709\u65e5\u7a0b")
+                || text.contains("\u5168\u90e8\u65e5\u7a0b")
+                || text.contains("\u6240\u6709\u7684\u65e5\u7a0b")
+                || text.contains("\u5168\u90e8\u7684\u65e5\u7a0b")
+                || text.contains("\u6240\u6709\u5b89\u6392")
+                || text.contains("\u5168\u90e8\u5b89\u6392")
+                || text.contains("\u6240\u6709\u7684\u5b89\u6392")
+                || text.contains("\u5168\u90e8\u7684\u5b89\u6392")
+                || text.contains("\u65e5\u7a0b\u5217\u8868"))
+                && !QUERY_TIME_HINT_PATTERN.matcher(text).find();
     }
 
     private boolean isCreate(String text) {

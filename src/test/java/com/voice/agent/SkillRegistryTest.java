@@ -34,6 +34,7 @@ class SkillRegistryTest {
         assertEquals(12, skills.size());
         assertEquals("meeting.create", registry.get("meeting.create").getSkillId());
         assertEquals("mock", registry.get("sms.send").getExecutor().getType());
+        assertEquals("amap-weather", registry.get("weather.query").getExecutor().getType());
         assertNotNull(registry.get("sms.send").getInputSchema().get("required"));
     }
 }

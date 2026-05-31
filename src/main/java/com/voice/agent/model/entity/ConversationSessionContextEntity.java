@@ -13,6 +13,7 @@ public class ConversationSessionContextEntity {
     private Long userId;
     private String sessionId;
     private Long lastMentionedEventId;
+    private String lastQueryEventIdsJson;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -24,6 +25,8 @@ public class ConversationSessionContextEntity {
     public void setSessionId(String sessionId) { this.sessionId = sessionId; }
     public Long getLastMentionedEventId() { return lastMentionedEventId; }
     public void setLastMentionedEventId(Long lastMentionedEventId) { this.lastMentionedEventId = lastMentionedEventId; }
+    public String getLastQueryEventIdsJson() { return lastQueryEventIdsJson; }
+    public void setLastQueryEventIdsJson(String lastQueryEventIdsJson) { this.lastQueryEventIdsJson = lastQueryEventIdsJson; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

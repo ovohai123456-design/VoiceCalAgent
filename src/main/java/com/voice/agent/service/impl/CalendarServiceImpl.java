@@ -15,6 +15,7 @@ import com.voice.agent.model.entity.RecurrenceSeriesEntity;
 import com.voice.agent.model.vo.CalendarEventVO;
 import com.voice.agent.model.vo.ConflictResultVO;
 import com.voice.agent.model.vo.FreeSlotVO;
+import com.voice.agent.service.CalendarEmailService;
 import com.voice.agent.service.CalendarService;
 import com.voice.agent.service.ReminderJobService;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -51,6 +53,7 @@ public class CalendarServiceImpl implements CalendarService {
     private final CalendarEventMapper calendarEventMapper;
     private final RecurrenceSeriesMapper recurrenceSeriesMapper;
     private final ReminderJobService reminderJobService;
+    private final CalendarEmailService calendarEmailService;
 
     @Value("${voicecal.default-user-id:1}")
     private Long defaultUserId;
@@ -76,11 +79,13 @@ public class CalendarServiceImpl implements CalendarService {
     public CalendarServiceImpl(
             CalendarEventMapper calendarEventMapper,
             RecurrenceSeriesMapper recurrenceSeriesMapper,
-            ReminderJobService reminderJobService
+            ReminderJobService reminderJobService,
+            CalendarEmailService calendarEmailService
     ) {
         this.calendarEventMapper = calendarEventMapper;
         this.recurrenceSeriesMapper = recurrenceSeriesMapper;
         this.reminderJobService = reminderJobService;
+        this.calendarEmailService = calendarEmailService;
     }
 
     @Override
@@ -141,7 +146,11 @@ public class CalendarServiceImpl implements CalendarService {
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         calendarEventMapper.insert(entity);
-        reminderJobService.createForEvent(entity);
+        reminderJobService.createForEvent(entity, request.getEmailReceiver(), request.getEmailContent());
+        calendarEmailService.notifyEventsCreatedAfterCommit(
+                Collections.singletonList(entity),
+                request.getEmailReceiver()
+        );
         return toVO(entity);
     }
 
@@ -421,7 +430,8 @@ public class CalendarServiceImpl implements CalendarService {
                         .eq(CalendarEventEntity::getRecurrenceSeriesId, seriesId)
                         .orderByAsc(CalendarEventEntity::getRecurrenceIndex)
         );
-        reminderJobService.createForEvents(created);
+        reminderJobService.createForEvents(created, request.getEmailReceiver(), request.getEmailContent());
+        calendarEmailService.notifyEventsCreatedAfterCommit(created, request.getEmailReceiver());
         return toVO(created.get(0));
     }
 

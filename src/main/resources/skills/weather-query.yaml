@@ -13,5 +13,4 @@ input_schema:
 output_schema:
   type: object
 executor:
-  type: mock
-  mock_name: weather.query
+  type: amap-weather

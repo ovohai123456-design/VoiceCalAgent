@@ -6,6 +6,7 @@ import com.voice.agent.model.dto.CreateEventRequest;
 import com.voice.agent.model.entity.CalendarEventEntity;
 import com.voice.agent.model.entity.RecurrenceSeriesEntity;
 import com.voice.agent.model.vo.CalendarEventVO;
+import com.voice.agent.service.CalendarEmailService;
 import com.voice.agent.service.ReminderJobService;
 import com.voice.agent.service.impl.CalendarServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,11 +31,17 @@ class CalendarServiceImplTest {
     private final CalendarEventMapper calendarEventMapper = mock(CalendarEventMapper.class);
     private final RecurrenceSeriesMapper recurrenceSeriesMapper = mock(RecurrenceSeriesMapper.class);
     private final ReminderJobService reminderJobService = mock(ReminderJobService.class);
+    private final CalendarEmailService calendarEmailService = mock(CalendarEmailService.class);
     private CalendarServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new CalendarServiceImpl(calendarEventMapper, recurrenceSeriesMapper, reminderJobService);
+        service = new CalendarServiceImpl(
+                calendarEventMapper,
+                recurrenceSeriesMapper,
+                reminderJobService,
+                calendarEmailService
+        );
         ReflectionTestUtils.setField(service, "defaultUserId", 1L);
         ReflectionTestUtils.setField(service, "recurrenceDefaultCount", 12);
         ReflectionTestUtils.setField(service, "recurrenceMaxCount", 100);
@@ -65,7 +73,8 @@ class CalendarServiceImplTest {
         assertEquals(LocalDateTime.of(2026, 6, 15, 10, 0), inserted.get(2).getStartTime());
         assertNotNull(inserted.get(0).getRecurrenceSeriesId());
         verify(recurrenceSeriesMapper).insert(any(RecurrenceSeriesEntity.class));
-        verify(reminderJobService).createForEvents(any());
+        verify(reminderJobService).createForEvents(any(), isNull(), isNull());
+        verify(calendarEmailService).notifyEventsCreatedAfterCommit(any(), isNull());
         assertEquals(10L, result.getId());
     }
 

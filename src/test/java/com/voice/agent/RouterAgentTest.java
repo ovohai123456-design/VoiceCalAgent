@@ -162,6 +162,24 @@ class RouterAgentTest {
     }
 
     @Test
+    void fallbackQueryShouldReturnAllEventsWithoutTimeRange() {
+        AgentPlan plan = routerAgent.route(request("\u67e5\u8be2\u5168\u90e8\u65e5\u7a0b"));
+
+        assertEquals(AgentConstants.INTENT_QUERY_EVENT, plan.getIntent());
+        assertNull(plan.getQueryEventRequest().getStartTime());
+        assertNull(plan.getQueryEventRequest().getEndTime());
+    }
+
+    @Test
+    void fallbackQueryShouldKeepDateRangeForAllEventsOnSpecificDay() {
+        AgentPlan plan = routerAgent.route(request("\u67e5\u8be2\u660e\u5929\u7684\u6240\u6709\u65e5\u7a0b"));
+
+        assertEquals(AgentConstants.INTENT_QUERY_EVENT, plan.getIntent());
+        assertEquals(LocalDateTime.of(2026, 5, 31, 0, 0), plan.getQueryEventRequest().getStartTime());
+        assertEquals(LocalDateTime.of(2026, 6, 1, 0, 0), plan.getQueryEventRequest().getEndTime());
+    }
+
+    @Test
     void fallbackCreateShouldRecognizeTencentMeeting() {
         AgentPlan plan = routerAgent.route(request("帮我创建下午三点的腾讯会议"));
 

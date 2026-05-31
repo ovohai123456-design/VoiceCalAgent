@@ -26,6 +26,7 @@ import com.voice.agent.model.vo.CalendarEventVO;
 import com.voice.agent.model.vo.ConflictResultVO;
 import com.voice.agent.tool.GenericToolAgent;
 import com.voice.agent.tool.ToolActionStep;
+import com.voice.agent.tool.ToolResultReplyFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +42,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,6 +70,8 @@ class AgentApplicationServiceTest {
     @Mock
     private GenericToolAgent genericToolAgent;
     @Mock
+    private ToolResultReplyFormatter toolResultReplyFormatter;
+    @Mock
     private ConversationMemoryService conversationMemoryService;
 
     private AgentApplicationService service;
@@ -83,6 +87,7 @@ class AgentApplicationServiceTest {
                 defaultValueResolver,
                 actionPlanBuilder,
                 genericToolAgent,
+                toolResultReplyFormatter,
                 conversationMemoryService
         );
     }
@@ -197,6 +202,36 @@ class AgentApplicationServiceTest {
     }
 
     @Test
+    void executeShouldUseSupplementalWeatherCityWithoutUnrelatedClarificationText() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("合肥");
+        ConversationStateEntity activeState = clarificationState();
+        CommandTaskEntity previous = new CommandTaskEntity();
+        previous.setTaskId("task_previous");
+        previous.setInputText("之前我问你了那个城市");
+        CommandTaskEntity task = task();
+        AgentPlan clarificationPlan = new AgentPlan();
+        clarificationPlan.getMissingFields().add("location");
+        AgentPlan routedPlan = new AgentPlan();
+        routedPlan.setIntent(AgentConstants.INTENT_UNKNOWN);
+        routedPlan.getMissingFields().add("intent");
+
+        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        when(conversationMemoryService.latestActiveState(1L, "session_001")).thenReturn(activeState);
+        when(conversationMemoryService.readStateContext(activeState, AgentPlan.class)).thenReturn(clarificationPlan);
+        when(commandWorkflowService.findTask("task_previous")).thenReturn(previous);
+        when(commandWorkflowService.createTask(request)).thenReturn(task);
+        when(commandWorkflowService.addLog(eq("task_001"), eq(1), any(), any(), any(), any()))
+                .thenReturn(new ExecutionLogEntity());
+        when(routerAgent.route(request)).thenReturn(routedPlan);
+
+        service.execute(request);
+
+        assertEquals("查询天气 合肥", request.getText());
+        verify(commandWorkflowService).markClarificationContinued("task_previous");
+    }
+
+    @Test
     void executeShouldReplaceClarificationStateWhenDeleteCommandStarts() {
         AgentExecuteRequest request = executeRequest();
         request.setText("帮我删除今天的日程");
@@ -294,6 +329,31 @@ class AgentApplicationServiceTest {
 
         assertEquals(Long.valueOf(99L), resolveRequest.getEventId());
         assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
+    void shouldResolveIndexedEventReferenceFromPreviousQueryResults() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("删除明天第一个的会议");
+        EventResolveRequest resolveRequest = new EventResolveRequest();
+        resolveRequest.setTitleKeyword("会议");
+        resolveRequest.setRangeStart(LocalDateTime.of(2026, 5, 31, 21, 0));
+        resolveRequest.setRangeEnd(LocalDateTime.of(2026, 5, 31, 22, 0));
+        AgentPlan plan = new AgentPlan();
+        plan.setEventResolveRequest(resolveRequest);
+        plan.getMissingFields().add("title");
+        plan.getMissingFields().add("start_time");
+        plan.getMissingFields().add("end_time");
+
+        when(conversationMemoryService.findRecentQueryEventId(1L, "session_001", 0)).thenReturn(88L);
+
+        ReflectionTestUtils.invokeMethod(service, "enrichPlanConversationReference", request, plan);
+
+        assertEquals(Long.valueOf(88L), resolveRequest.getEventId());
+        assertNull(resolveRequest.getTitleKeyword());
+        assertNull(resolveRequest.getRangeStart());
+        assertNull(resolveRequest.getRangeEnd());
+        assertTrue(plan.getMissingFields().isEmpty());
     }
 
     @Test

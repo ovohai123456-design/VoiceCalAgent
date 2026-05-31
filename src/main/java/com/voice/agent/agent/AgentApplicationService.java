@@ -18,6 +18,7 @@ import com.voice.agent.model.vo.AgentResponse;
 import com.voice.agent.model.vo.CalendarEventVO;
 import com.voice.agent.tool.GenericToolAgent;
 import com.voice.agent.tool.ToolActionStep;
+import com.voice.agent.tool.ToolResultReplyFormatter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,8 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Agent 应用编排服务。
@@ -35,6 +38,9 @@ import java.util.Map;
 @Service
 public class AgentApplicationService {
     private static final String DEFAULT_SESSION_ID = "default_session";
+    private static final Pattern QUERY_RESULT_INDEX_PATTERN = Pattern.compile(
+            "第([0-9一二两三四五六七八九十]+)(?:个|条)"
+    );
 
     private final RouterAgent routerAgent;
     private final CalendarAgent calendarAgent;
@@ -44,6 +50,7 @@ public class AgentApplicationService {
     private final DefaultValueResolver defaultValueResolver;
     private final ActionPlanBuilder actionPlanBuilder;
     private final GenericToolAgent genericToolAgent;
+    private final ToolResultReplyFormatter toolResultReplyFormatter;
     private final ConversationMemoryService conversationMemoryService;
 
     @Value("${voicecal.confirm.auto-execute-safe-writes:true}")
@@ -61,6 +68,7 @@ public class AgentApplicationService {
             DefaultValueResolver defaultValueResolver,
             ActionPlanBuilder actionPlanBuilder,
             GenericToolAgent genericToolAgent,
+            ToolResultReplyFormatter toolResultReplyFormatter,
             ConversationMemoryService conversationMemoryService
     ) {
         this.routerAgent = routerAgent;
@@ -71,6 +79,7 @@ public class AgentApplicationService {
         this.defaultValueResolver = defaultValueResolver;
         this.actionPlanBuilder = actionPlanBuilder;
         this.genericToolAgent = genericToolAgent;
+        this.toolResultReplyFormatter = toolResultReplyFormatter;
         this.conversationMemoryService = conversationMemoryService;
     }
 
@@ -640,6 +649,25 @@ public class AgentApplicationService {
             return;
         }
         com.voice.agent.model.dto.EventResolveRequest resolve = plan.getEventResolveRequest();
+        Integer queryResultIndex = parseQueryResultReferenceIndex(request.getText());
+        if (queryResultIndex != null) {
+            Long eventId = conversationMemoryService.findRecentQueryEventId(
+                    request.getUserId(),
+                    request.getSessionId(),
+                    queryResultIndex
+            );
+            if (eventId == null) {
+                throw new IllegalArgumentException("上一轮查询结果中没有第 " + (queryResultIndex + 1) + " 个日程，请重新查询后再操作");
+            }
+            resolve.setEventId(eventId);
+            resolve.setTitleKeyword(null);
+            resolve.setRangeStart(null);
+            resolve.setRangeEnd(null);
+            plan.getMissingFields().removeIf(field ->
+                    "title".equals(field) || "start_time".equals(field) || "end_time".equals(field)
+            );
+            return;
+        }
         boolean explicitReference = "LAST_MENTIONED_EVENT".equalsIgnoreCase(resolve.getReference())
                 || containsRecentEventReference(request.getText());
         if (!explicitReference || resolve.getEventId() != null) {
@@ -649,6 +677,23 @@ public class AgentApplicationService {
         if (eventId != null) {
             resolve.setEventId(eventId);
             plan.getMissingFields().removeIf("title"::equals);
+        }
+    }
+
+    private Integer parseQueryResultReferenceIndex(String text) {
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        Matcher matcher = QUERY_RESULT_INDEX_PATTERN.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        String value = matcher.group(1);
+        try {
+            int number = value.matches("[0-9]+") ? Integer.parseInt(value) : parseChineseNumber(value);
+            return number > 0 ? number - 1 : null;
+        } catch (NumberFormatException ignored) {
+            return null;
         }
     }
 
@@ -718,9 +763,7 @@ public class AgentApplicationService {
         }
 
         String reply = calendarAgent.buildQueryReply(events);
-        if (events.size() == 1) {
-            conversationMemoryService.rememberLastMentionedEvent(task.getUserId(), task.getSessionId(), events.get(0).getId());
-        }
+        conversationMemoryService.rememberRecentQueryEvents(task.getUserId(), task.getSessionId(), events);
         commandWorkflowService.finishSuccess(task.getTaskId(), AgentConstants.INTENT_QUERY_EVENT, reply, reply);
 
         AgentResponse response = baseResponse(true, task.getTaskId(), reply);
@@ -730,12 +773,9 @@ public class AgentApplicationService {
 
     private AgentResponse executeGenericSkills(CommandTaskEntity task, AgentPlan plan) {
         GenericToolAgent.ToolExecutionSummary summary = executeToolSteps(task.getTaskId(), plan.getToolSteps());
-        StringBuilder reply = new StringBuilder("已执行技能：");
-        for (com.voice.agent.tool.ToolExecutionResult result : summary.getResults()) {
-            reply.append(result.getSkillId()).append(" ").append(String.valueOf(result.getData())).append("；");
-        }
-        commandWorkflowService.finishSuccess(task.getTaskId(), AgentConstants.INTENT_RUN_SKILLS, reply.toString(), reply.toString());
-        AgentResponse response = baseResponse(true, task.getTaskId(), reply.toString());
+        String reply = toolResultReplyFormatter.format(summary.getResults());
+        commandWorkflowService.finishSuccess(task.getTaskId(), AgentConstants.INTENT_RUN_SKILLS, reply, reply);
+        AgentResponse response = baseResponse(true, task.getTaskId(), reply);
         response.setData(summary.getContext());
         return response;
     }
@@ -971,6 +1011,12 @@ public class AgentApplicationService {
         if (plan.getMissingFields().contains("skill_calls")) {
             return "我还缺少可执行的技能参数，请补充得更具体一些。";
         }
+        if (plan.getMissingFields().contains("location")) {
+            return "你想查询哪个城市的天气？";
+        }
+        if (plan.getMissingFields().contains("destination")) {
+            return "你想导航到哪里？";
+        }
         return "我没有理解清楚，你可以换一种说法吗？";
     }
 
@@ -997,8 +1043,19 @@ public class AgentApplicationService {
         if (clarification == null || !shouldMergeClarification(request.getText())) {
             return;
         }
-        request.setText(clarification.getInputText() + " " + request.getText());
+        request.setText(buildClarificationInput(activeState, clarification.getInputText(), request.getText()));
         commandWorkflowService.markClarificationContinued(clarification.getTaskId());
+    }
+
+    private String buildClarificationInput(ConversationStateEntity state, String originalText, String supplementalText) {
+        AgentPlan plan = conversationMemoryService.readStateContext(state, AgentPlan.class);
+        if (plan != null && plan.getMissingFields().contains("location")) {
+            return "查询天气 " + supplementalText;
+        }
+        if (plan != null && plan.getMissingFields().contains("destination")) {
+            return "导航到 " + supplementalText;
+        }
+        return originalText + " " + supplementalText;
     }
 
     private ConversationStateEntity abandonStateForNewCommand(

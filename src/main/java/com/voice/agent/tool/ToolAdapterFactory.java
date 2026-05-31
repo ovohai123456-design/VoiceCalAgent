@@ -12,11 +12,13 @@ public class ToolAdapterFactory {
     public ToolAdapterFactory(
             NativeToolAdapter nativeToolAdapter,
             MockToolAdapter mockToolAdapter,
-            SchedulerToolAdapter schedulerToolAdapter
+            SchedulerToolAdapter schedulerToolAdapter,
+            AmapWeatherToolAdapter amapWeatherToolAdapter
     ) {
         adapters.put(nativeToolAdapter.getType(), nativeToolAdapter::execute);
         adapters.put(mockToolAdapter.getType(), mockToolAdapter::execute);
         adapters.put(schedulerToolAdapter.getType(), schedulerToolAdapter::execute);
+        adapters.put(amapWeatherToolAdapter.getType(), amapWeatherToolAdapter::execute);
     }
 
     public ToolAdapterInvoker get(String type) {

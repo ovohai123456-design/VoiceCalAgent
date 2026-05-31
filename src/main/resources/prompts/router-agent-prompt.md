@@ -46,6 +46,10 @@
 17. “刚才的会议”“那个日程”“这个安排”表示最近提到的日程，将 targetReference 设置为 LAST_MENTIONED_EVENT。
 18. 需要执行插件时，根据 Skill Registry 生成 skillCalls。arguments 可引用前一步输出，例如 ${meeting.url}。
 19. 天气、导航等非日历任务使用 RUN_SKILLS，并通过 skillCalls 调用对应插件。
+20. 天气查询必须由用户明确提供地点，并保留用户输入中的中文地点名称。用户只说“天气”时，将 location 放入 missingFields，不要自行补城市。
+21. 导航任务必须由用户明确提供目的地。用户只说“导航”时，将 destination 放入 missingFields，不要自行补目的地。
+22. 用户明确要求“所有日程”“全部日程”“所有安排”“全部安排”或“日程列表”，并且没有提供日期或时间范围时，使用 QUERY_EVENT，queryStartTime、queryEndTime 和 keyword 留空，missingFields 不要要求时间。用户说“明天的所有日程”等带时间范围的表达时，仍然填入对应范围。
+23. 用户在上一轮查询后说“删除第一个”“修改第二条”等，序号表示上一轮查询结果中的顺序。不要重新猜测日程时间。
 
 JSON 格式：
 {

@@ -30,6 +30,9 @@ public class DefaultValueResolver {
     @Value("${voicecal.calendar.default-reminder-minutes:10}")
     private Integer defaultReminderMinutes;
 
+    @Value("${voicecal.email.enabled:false}")
+    private Boolean emailEnabled;
+
     public Long resolveUserId(Long userId) {
         return userId == null ? defaultUserId : userId;
     }
@@ -65,7 +68,9 @@ public class DefaultValueResolver {
         if (!StringUtils.hasText(request.getLocation()) && StringUtils.hasText(preference.getDefaultLocation())) {
             request.setLocation(preference.getDefaultLocation());
         }
-        if (!StringUtils.hasText(request.getEmailReceiver()) && StringUtils.hasText(preference.getDefaultEmail())) {
+        if (Boolean.TRUE.equals(emailEnabled)
+                && !StringUtils.hasText(request.getEmailReceiver())
+                && StringUtils.hasText(preference.getDefaultEmail())) {
             request.setEmailReceiver(preference.getDefaultEmail());
         }
     }

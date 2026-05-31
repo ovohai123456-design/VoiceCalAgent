@@ -2,6 +2,7 @@ package com.voice.agent.agent;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.voice.agent.mapper.ConversationMessageMapper;
 import com.voice.agent.mapper.ConversationStateMapper;
@@ -9,6 +10,7 @@ import com.voice.agent.mapper.ConversationSessionContextMapper;
 import com.voice.agent.model.entity.ConversationMessageEntity;
 import com.voice.agent.model.entity.ConversationSessionContextEntity;
 import com.voice.agent.model.entity.ConversationStateEntity;
+import com.voice.agent.model.vo.CalendarEventVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -16,6 +18,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ConversationMemoryService {
@@ -160,6 +163,17 @@ public class ConversationMemoryService {
                 + ", context=" + state.getContextJson();
     }
 
+    public <T> T readStateContext(ConversationStateEntity state, Class<T> type) {
+        if (state == null || type == null || !StringUtils.hasText(state.getContextJson())) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(state.getContextJson(), type);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
     public ConversationSessionContextEntity getSessionContext(Long userId, String sessionId) {
         if (userId == null || !StringUtils.hasText(sessionId)) {
             return null;
@@ -193,6 +207,55 @@ public class ConversationMemoryService {
     public Long findLastMentionedEventId(Long userId, String sessionId) {
         ConversationSessionContextEntity context = getSessionContext(userId, sessionId);
         return context == null ? null : context.getLastMentionedEventId();
+    }
+
+    @Transactional
+    public void rememberRecentQueryEvents(Long userId, String sessionId, List<CalendarEventVO> events) {
+        if (userId == null || !StringUtils.hasText(sessionId)) {
+            return;
+        }
+        List<Long> eventIds = events == null
+                ? Collections.emptyList()
+                : events.stream()
+                .filter(event -> event != null && event.getId() != null)
+                .map(CalendarEventVO::getId)
+                .collect(Collectors.toList());
+        ConversationSessionContextEntity context = getSessionContext(userId, sessionId);
+        if (context == null) {
+            context = new ConversationSessionContextEntity();
+            context.setUserId(userId);
+            context.setSessionId(sessionId);
+            context.setLastQueryEventIdsJson(toJson(eventIds));
+            if (eventIds.size() == 1) {
+                context.setLastMentionedEventId(eventIds.get(0));
+            }
+            sessionContextMapper.insert(context);
+            return;
+        }
+        context.setLastQueryEventIdsJson(toJson(eventIds));
+        if (eventIds.size() == 1) {
+            context.setLastMentionedEventId(eventIds.get(0));
+        }
+        sessionContextMapper.updateById(context);
+    }
+
+    public Long findRecentQueryEventId(Long userId, String sessionId, int index) {
+        if (index < 0) {
+            return null;
+        }
+        ConversationSessionContextEntity context = getSessionContext(userId, sessionId);
+        if (context == null || !StringUtils.hasText(context.getLastQueryEventIdsJson())) {
+            return null;
+        }
+        try {
+            List<Long> eventIds = objectMapper.readValue(
+                    context.getLastQueryEventIdsJson(),
+                    new TypeReference<List<Long>>() {}
+            );
+            return index < eventIds.size() ? eventIds.get(index) : null;
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 
     public String buildSessionContextText(Long userId, String sessionId) {

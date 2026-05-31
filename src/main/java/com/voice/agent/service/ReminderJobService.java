@@ -5,7 +5,6 @@ import com.voice.agent.mapper.ReminderJobMapper;
 import com.voice.agent.model.entity.CalendarEventEntity;
 import com.voice.agent.model.entity.ReminderJobEntity;
 import com.voice.agent.model.vo.ReminderJobVO;
-import com.voice.agent.mock.MockEmailProvider;
 import com.voice.agent.stream.AgentEventStreamService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +20,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,7 +34,8 @@ public class ReminderJobService {
     private static final String JOB_TYPE_EMAIL = "EMAIL";
 
     private final ReminderJobMapper reminderJobMapper;
-    private final MockEmailProvider mockEmailProvider;
+    private final EmailDeliveryService emailDeliveryService;
+    private final CalendarEmailService calendarEmailService;
     private final ObjectMapper objectMapper;
     private final AgentEventStreamService eventStreamService;
 
@@ -43,12 +44,14 @@ public class ReminderJobService {
 
     public ReminderJobService(
             ReminderJobMapper reminderJobMapper,
-            MockEmailProvider mockEmailProvider,
+            EmailDeliveryService emailDeliveryService,
+            CalendarEmailService calendarEmailService,
             ObjectMapper objectMapper,
             AgentEventStreamService eventStreamService
     ) {
         this.reminderJobMapper = reminderJobMapper;
-        this.mockEmailProvider = mockEmailProvider;
+        this.emailDeliveryService = emailDeliveryService;
+        this.calendarEmailService = calendarEmailService;
         this.objectMapper = objectMapper;
         this.eventStreamService = eventStreamService;
     }
@@ -61,23 +64,29 @@ public class ReminderJobService {
 
     @Transactional
     public void createForEvent(CalendarEventEntity event) {
-        ReminderJobEntity job = buildJob(event, LocalDateTime.now());
-        if (job == null) {
-            return;
+        createForEvent(event, null, null);
+    }
+
+    @Transactional
+    public void createForEvent(CalendarEventEntity event, String emailReceiver, String emailContent) {
+        List<ReminderJobEntity> jobs = buildJobs(event, LocalDateTime.now(), emailReceiver, emailContent);
+        for (ReminderJobEntity job : jobs) {
+            reminderJobMapper.insert(job);
+            publishReminderChangedAfterCommit(job);
         }
-        reminderJobMapper.insert(job);
-        publishReminderChangedAfterCommit(job);
     }
 
     @Transactional
     public void createForEvents(List<CalendarEventEntity> events) {
+        createForEvents(events, null, null);
+    }
+
+    @Transactional
+    public void createForEvents(List<CalendarEventEntity> events, String emailReceiver, String emailContent) {
         LocalDateTime now = LocalDateTime.now();
         List<ReminderJobEntity> jobs = new ArrayList<>();
         for (CalendarEventEntity event : events) {
-            ReminderJobEntity job = buildJob(event, now);
-            if (job != null) {
-                jobs.add(job);
-            }
+            jobs.addAll(buildJobs(event, now, emailReceiver, emailContent));
         }
         if (!jobs.isEmpty()) {
             reminderJobMapper.insertBatch(jobs);
@@ -91,19 +100,49 @@ public class ReminderJobService {
         }
     }
 
-    private ReminderJobEntity buildJob(CalendarEventEntity event, LocalDateTime now) {
+    private List<ReminderJobEntity> buildJobs(
+            CalendarEventEntity event,
+            LocalDateTime now,
+            String emailReceiver,
+            String emailContent
+    ) {
+        List<ReminderJobEntity> jobs = new ArrayList<>();
         if (event.getReminderMinutes() == null || event.getReminderMinutes() <= 0) {
-            return null;
+            return jobs;
         }
         LocalDateTime runAt = event.getStartTime().minusMinutes(event.getReminderMinutes());
         if (!runAt.isAfter(now)) {
-            return null;
+            return jobs;
         }
+
+        jobs.add(newJob(
+                event,
+                JOB_TYPE_IN_APP,
+                "{\"title\":\"" + escapeJson(event.getTitle()) + "\"}",
+                runAt
+        ));
+        Map<String, Object> emailPayload = calendarEmailService.buildReminderPayload(
+                event,
+                emailReceiver,
+                emailContent
+        );
+        if (emailPayload != null && !emailPayload.isEmpty()) {
+            jobs.add(newJob(event, JOB_TYPE_EMAIL, toJson(emailPayload), runAt));
+        }
+        return jobs;
+    }
+
+    private ReminderJobEntity newJob(
+            CalendarEventEntity event,
+            String jobType,
+            String payloadJson,
+            LocalDateTime runAt
+    ) {
         ReminderJobEntity job = new ReminderJobEntity();
         job.setUserId(event.getUserId());
         job.setEventId(event.getId());
-        job.setJobType(JOB_TYPE_IN_APP);
-        job.setJobPayloadJson("{\"title\":\"" + escapeJson(event.getTitle()) + "\"}");
+        job.setJobType(jobType);
+        job.setJobPayloadJson(payloadJson);
         job.setRunAt(runAt);
         job.setStatus(STATUS_PENDING);
         job.setRetryCount(0);
@@ -228,12 +267,26 @@ public class ReminderJobService {
 
     @Transactional
     public ReminderJobEntity scheduleEmail(Map<String, Object> arguments) {
+        if (!emailDeliveryService.isEnabled()) {
+            throw new IllegalStateException("SMTP email delivery is disabled");
+        }
+        Long eventId = asLong(arguments.get("event_id"));
+        LocalDateTime runAt = LocalDateTime.parse(String.valueOf(arguments.get("run_at")));
+        ReminderJobEntity existing = findPendingEmailJob(
+                eventId,
+                runAt,
+                String.valueOf(arguments.get("receiver"))
+        );
+        if (existing != null) {
+            return existing;
+        }
+
         ReminderJobEntity job = new ReminderJobEntity();
         job.setUserId(asLong(arguments.get("user_id")));
-        job.setEventId(asLong(arguments.get("event_id")));
+        job.setEventId(eventId);
         job.setJobType(JOB_TYPE_EMAIL);
         job.setJobPayloadJson(toJson(arguments));
-        job.setRunAt(LocalDateTime.parse(String.valueOf(arguments.get("run_at"))));
+        job.setRunAt(runAt);
         job.setStatus(STATUS_PENDING);
         job.setRetryCount(0);
         job.setMaxRetryCount(maxRetryCount);
@@ -245,7 +298,7 @@ public class ReminderJobService {
     private void executeJob(ReminderJobEntity job) {
         try {
             if (JOB_TYPE_EMAIL.equals(job.getJobType())) {
-                mockEmailProvider.send(readPayload(job.getJobPayloadJson()));
+                emailDeliveryService.send(readPayload(job.getJobPayloadJson()));
             }
             job.setStatus(STATUS_EXECUTED);
             job.setExecutedAt(LocalDateTime.now());
@@ -261,6 +314,23 @@ public class ReminderJobService {
             publishReminderChangedAfterCommit(job);
             log.warn("Reminder failed jobId={} type={} retry={}", job.getId(), job.getJobType(), retryCount);
         }
+    }
+
+    private ReminderJobEntity findPendingEmailJob(Long eventId, LocalDateTime runAt, String receiver) {
+        List<ReminderJobEntity> jobs = reminderJobMapper.selectList(
+                Wrappers.lambdaQuery(ReminderJobEntity.class)
+                        .eq(ReminderJobEntity::getEventId, eventId)
+                        .eq(ReminderJobEntity::getJobType, JOB_TYPE_EMAIL)
+                        .eq(ReminderJobEntity::getStatus, STATUS_PENDING)
+                        .eq(ReminderJobEntity::getRunAt, runAt)
+        );
+        for (ReminderJobEntity job : jobs) {
+            Map<String, Object> payload = readPayload(job.getJobPayloadJson());
+            if (Objects.equals(receiver, String.valueOf(payload.get("receiver")))) {
+                return job;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

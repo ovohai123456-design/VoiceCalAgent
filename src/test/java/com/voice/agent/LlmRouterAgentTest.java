@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -140,6 +141,90 @@ class LlmRouterAgentTest {
         assertEquals(AgentConstants.INTENT_RUN_SKILLS, routerAgent.route(request).getIntent());
         assertEquals("weather.query", routerAgent.route(request).getToolSteps().get(0).getSkillId());
         assertEquals("上海", routerAgent.route(request).getToolSteps().get(0).getArguments().get("location"));
+    }
+
+    @Test
+    void shouldIgnoreModelTimeRangeWhenUserRequestsAllEvents() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"QUERY_EVENT\",\"slots\":{"
+                        + "\"queryStartTime\":\"2026-05-31 00:00:00\","
+                        + "\"queryEndTime\":\"2026-06-01 00:00:00\","
+                        + "\"keyword\":\"\u5168\u90e8\"},"
+                        + "\"missingFields\":[\"start_time\",\"end_time\"]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("\u67e5\u8be2\u5168\u90e8\u65e5\u7a0b");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(AgentConstants.INTENT_QUERY_EVENT, routerAgent.route(request).getIntent());
+        assertNull(routerAgent.route(request).getQueryEventRequest().getStartTime());
+        assertNull(routerAgent.route(request).getQueryEventRequest().getEndTime());
+        assertNull(routerAgent.route(request).getQueryEventRequest().getKeyword());
+        assertEquals(Collections.emptyList(), routerAgent.route(request).getMissingFields());
+    }
+
+    @Test
+    void shouldKeepTimeRangeWhenUserRequestsAllEventsOnSpecificDay() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"QUERY_EVENT\",\"slots\":{"
+                        + "\"queryStartTime\":\"2026-05-31 00:00:00\","
+                        + "\"queryEndTime\":\"2026-06-01 00:00:00\"},"
+                        + "\"missingFields\":[]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("\u67e5\u8be2\u660e\u5929\u7684\u6240\u6709\u65e5\u7a0b");
+        request.setCurrentTime("2026-05-30 12:00:00");
+
+        assertEquals(
+                LocalDateTime.of(2026, 5, 31, 0, 0),
+                routerAgent.route(request).getQueryEventRequest().getStartTime()
+        );
+        assertEquals(
+                LocalDateTime.of(2026, 6, 1, 0, 0),
+                routerAgent.route(request).getQueryEventRequest().getEndTime()
+        );
+    }
+
+    @Test
+    void shouldAskForWeatherLocationInsteadOfUsingInventedLocation() {
+        SkillDefinition weather = new SkillDefinition();
+        weather.setSkillId("weather.query");
+        when(skillRegistry.get("weather.query")).thenReturn(weather);
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"RUN_SKILLS\",\"skillCalls\":[{"
+                        + "\"stepOrder\":10,\"skillId\":\"weather.query\","
+                        + "\"outputAlias\":\"weather\",\"arguments\":{\"location\":\"上海\"}}]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("天气");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(Collections.singletonList("location"), routerAgent.route(request).getMissingFields());
+        assertFalse(routerAgent.route(request).getToolSteps().get(0).getArguments().containsKey("location"));
+    }
+
+    @Test
+    void shouldUseExplicitChineseWeatherLocationInsteadOfNormalizedModelValue() {
+        SkillDefinition weather = new SkillDefinition();
+        weather.setSkillId("weather.query");
+        when(skillRegistry.get("weather.query")).thenReturn(weather);
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"RUN_SKILLS\",\"skillCalls\":[{"
+                        + "\"stepOrder\":10,\"skillId\":\"weather.query\","
+                        + "\"outputAlias\":\"weather\",\"arguments\":{\"location\":\"Shanghai\"}}]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("上海天气怎么样");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(
+                "上海",
+                routerAgent.route(request).getToolSteps().get(0).getArguments().get("location")
+        );
     }
 
     @Test

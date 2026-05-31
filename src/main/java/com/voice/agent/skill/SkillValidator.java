@@ -9,7 +9,9 @@ import java.util.Set;
 
 @Component
 public class SkillValidator {
-    private static final Set<String> EXECUTOR_TYPES = new HashSet<>(Arrays.asList("native", "mock", "scheduler"));
+    private static final Set<String> EXECUTOR_TYPES = new HashSet<>(Arrays.asList(
+            "native", "mock", "scheduler", "amap-weather"
+    ));
     private static final Set<String> MOCK_NAMES = new HashSet<>(Arrays.asList(
             "meeting.create", "sms.send", "email.send", "weather.query", "navigation.route"
     ));
