@@ -39,14 +39,16 @@ const tagType = computed(() => ({
   justify-content: space-between;
   align-items: center;
   gap: 18px;
-  max-width: 1880px;
-  min-height: 70px;
+  width: 100%;
+  min-height: 64px;
   margin: 0 auto;
-  padding: 12px 18px;
-  border: 1px solid rgb(160 207 255 / 18%);
-  border-radius: 20px;
-  background: linear-gradient(145deg, rgb(18 51 90 / 60%), rgb(9 27 52 / 52%));
-  box-shadow: 0 14px 48px rgb(0 6 22 / 28%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  padding: 11px 18px;
+  border: 1px solid rgb(170 220 255 / 20%);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 22% 0%, rgb(74 144 226 / 18%), transparent 32%),
+    linear-gradient(145deg, rgb(18 51 90 / 62%), rgb(9 27 52 / 54%));
+  box-shadow: 0 16px 52px rgb(0 6 22 / 30%), inset 0 1px 0 rgb(255 255 255 / 10%);
   backdrop-filter: blur(26px);
 }
 
@@ -67,12 +69,17 @@ h1 {
   margin: 0;
   color: #f0f8ff;
   font-size: 19px;
+  letter-spacing: 0.02em;
 }
 
 .brand span,
 .clock {
-  color: rgb(205 227 250 / 68%);
+  color: rgb(205 227 250 / 70%);
   font-size: 13px;
+}
+
+.header-meta :deep(.el-tag) {
+  border-radius: 999px;
 }
 
 @media (max-width: 560px) {

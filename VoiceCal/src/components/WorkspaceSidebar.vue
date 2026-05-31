@@ -277,16 +277,38 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 <style scoped>
 .workspace-sidebar {
   min-width: 0;
-  padding: 14px 16px;
-  border: 1px solid rgb(160 207 255 / 18%);
-  border-radius: 22px;
-  background: linear-gradient(145deg, rgb(18 48 84 / 62%), rgb(9 25 49 / 52%));
-  box-shadow: 0 18px 54px rgb(0 6 22 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  min-height: 0;
+  height: 100%;
+  padding: 16px 18px;
+  border: 1px solid rgb(170 220 255 / 18%);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 80% 0%, rgb(120 105 255 / 18%), transparent 34%),
+    linear-gradient(145deg, rgb(18 48 84 / 66%), rgb(9 25 49 / 54%));
+  box-shadow: 0 22px 64px rgb(0 6 22 / 34%), inset 0 1px 0 rgb(255 255 255 / 10%);
+  overflow: hidden;
   backdrop-filter: blur(26px);
 }
 
+.workspace-tabs {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workspace-tabs :deep(.el-tabs__content) {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-tabs :deep(.el-tab-pane) {
+  height: 100%;
+  min-height: 0;
+}
+
 .workspace-tabs :deep(.el-tabs__header) {
-  margin-bottom: 14px;
+  margin-bottom: 15px;
 }
 
 .workspace-tabs :deep(.el-tabs__nav-wrap::after) {
@@ -306,14 +328,20 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
   align-items: center;
 }
 
+.tab-toolbar strong {
+  color: #f1f9ff;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+}
+
 .permission-text,
 .skill-summary {
-  color: rgb(204 225 249 / 66%);
+  color: rgb(204 225 249 / 68%);
   font-size: 12px;
 }
 
 .permission-text {
-  margin: 6px 0 12px;
+  margin: 6px 0 14px;
 }
 
 .skill-summary {
@@ -324,36 +352,53 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 
 .compact-list {
   display: grid;
-  gap: 8px;
-  max-height: 540px;
+  gap: 10px;
+  max-height: calc(100% - 82px);
   overflow-y: auto;
+  padding-right: 2px;
+}
+
+.compact-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.compact-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(145 216 255 / 22%);
 }
 
 .compact-row,
 .skill-row,
 .contact-row {
-  padding: 10px;
-  border: 1px solid rgb(162 207 255 / 14%);
-  border-radius: 12px;
-  background: rgb(7 24 48 / 38%);
+  padding: 12px;
+  border: 1px solid rgb(162 207 255 / 15%);
+  border-radius: 16px;
+  background: rgb(7 24 48 / 42%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
 }
 
 .compact-row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 9px;
 }
 
 .compact-row div,
 .skill-row,
 .contact-main {
   display: grid;
-  gap: 4px;
+  gap: 5px;
+}
+
+.compact-row strong,
+.skill-title strong,
+.contact-main strong {
+  color: #eef8ff;
 }
 
 .compact-row span,
 .contact-main span {
-  color: rgb(204 225 249 / 66%);
+  color: rgb(204 225 249 / 68%);
   font-size: 12px;
 }
 

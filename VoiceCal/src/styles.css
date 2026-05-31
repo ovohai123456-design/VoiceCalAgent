@@ -109,3 +109,52 @@ textarea {
   --el-button-hover-bg-color: rgb(43 116 185 / 52%);
   --el-button-hover-text-color: #fff;
 }
+
+.el-tag {
+  --el-tag-bg-color: rgb(9 30 58 / 64%) !important;
+  --el-tag-border-color: rgb(157 211 255 / 30%) !important;
+  --el-tag-text-color: #ccecff !important;
+  border-radius: 999px;
+}
+
+.el-tag.el-tag--success {
+  --el-tag-bg-color: rgb(20 112 89 / 26%) !important;
+  --el-tag-border-color: rgb(70 215 163 / 48%) !important;
+  --el-tag-text-color: #72e1b9 !important;
+}
+
+.el-tag.el-tag--warning {
+  --el-tag-bg-color: rgb(133 91 21 / 28%) !important;
+  --el-tag-border-color: rgb(246 190 81 / 50%) !important;
+  --el-tag-text-color: #ffd37d !important;
+}
+
+.el-tag.el-tag--danger {
+  --el-tag-bg-color: rgb(140 49 63 / 28%) !important;
+  --el-tag-border-color: rgb(255 119 137 / 50%) !important;
+  --el-tag-text-color: #ff9aaa !important;
+}
+
+.el-tag.el-tag--info {
+  --el-tag-bg-color: rgb(28 65 99 / 34%) !important;
+  --el-tag-border-color: rgb(143 198 239 / 38%) !important;
+  --el-tag-text-color: #b9e0f8 !important;
+}
+
+.el-drawer {
+  --el-drawer-bg-color: rgb(10 29 55 / 92%);
+  --el-text-color-primary: #e9f5ff;
+  border-left: 1px solid rgb(160 207 255 / 18%);
+  box-shadow: -22px 0 70px rgb(0 6 22 / 46%);
+  backdrop-filter: blur(30px);
+}
+
+.el-drawer__header {
+  margin-bottom: 12px;
+  color: #f0f8ff;
+  font-weight: 800;
+}
+
+.el-date-editor .el-input__wrapper {
+  width: 100%;
+}

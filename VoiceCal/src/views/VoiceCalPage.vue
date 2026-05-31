@@ -3,12 +3,14 @@
     <StatusHeader :current-time="currentTime" :status="status" :status-label="statusLabel" />
 
     <main class="workspace-grid">
-      <section class="main-column">
+      <section class="voice-zone">
         <VoiceCommandPanel
           v-model="commandText"
           :messages="messages"
           :status="status"
           :last-input-type="lastInputType"
+          :continuous-voice-enabled="continuousVoiceEnabled"
+          @update:continuous-voice-enabled="handleContinuousVoiceChange"
           @manual-input="handleManualInput"
           @start-voice="handleStartVoice"
           @stop-voice="handleStopVoice"
@@ -38,11 +40,13 @@
           @confirm="handleConfirm"
           @cancel="handleCancel"
         />
+      </section>
 
+      <section class="calendar-zone">
         <CalendarView ref="calendarViewRef" @calendar-change="refreshReminders" />
       </section>
 
-      <aside class="side-column">
+      <aside class="side-zone">
         <WorkspaceSidebar
           :reminders="reminders"
           :notification-button-text="notificationButtonText"
@@ -50,8 +54,11 @@
           @delete-reminder="handleDeleteReminder"
           @clear-reminders="handleClearReminders"
         />
-        <WorkflowTimeline :task-id="taskId" :live-steps="workflowSteps" />
       </aside>
+
+      <section class="workflow-zone">
+        <WorkflowTimeline :task-id="taskId" :live-steps="workflowSteps" />
+      </section>
     </main>
   </div>
 </template>
@@ -94,6 +101,7 @@ const confirmToken = ref('');
 const taskId = ref<string | null>(null);
 const lastInputType = ref<InputType>('TEXT');
 const speechRecognition = ref<SpeechRecognition | null>(null);
+const continuousVoiceEnabled = ref(true);
 const calendarViewRef = ref<InstanceType<typeof CalendarView> | null>(null);
 const workflowSteps = ref<WorkflowStep[]>([]);
 const conflictSlots = ref<SuggestedSlot[]>([]);
@@ -110,6 +118,10 @@ let timerId: number | null = null;
 let reminderPollingInitialized = false;
 let messageSequence = 1;
 let closeEventStream: (() => void) | null = null;
+let voiceRestartTimerId: number | null = null;
+let recognitionActive = false;
+let explicitVoiceStop = false;
+let speechPlaybackActive = false;
 
 const statusLabel = computed(() => ({
   IDLE: '空闲',
@@ -145,7 +157,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (timerId !== null) window.clearInterval(timerId);
   closeEventStream?.();
+  clearVoiceRestartTimer();
   stopRecognition(speechRecognition.value);
+  window.speechSynthesis?.cancel();
 });
 
 function handleManualInput(): void {
@@ -153,29 +167,62 @@ function handleManualInput(): void {
 }
 
 function handleStartVoice(): void {
+  clearVoiceRestartTimer();
+  if (recognitionActive || speechPlaybackActive) return;
   const recognition = speechRecognition.value ?? createSpeechRecognition({ lang: 'zh-CN', continuous: false, interimResults: false });
   if (!recognition) {
     ElMessage.warning('当前浏览器不支持语音识别，请使用 Chrome、Edge 或文本输入。');
     return;
   }
   speechRecognition.value = recognition;
+  explicitVoiceStop = false;
   recognition.onresult = (event: SpeechRecognitionEvent) => {
     const transcript = Array.from({ length: event.results.length }, (_, index) => event.results[index][0].transcript).join('').trim();
     if (!transcript) return;
+    stopRecognition(recognition);
     void sendConversationMessage(transcript, 'VOICE');
   };
-  recognition.onerror = () => {
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognitionActive = false;
+    if (event.error === 'aborted' || event.error === 'no-speech') return;
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      continuousVoiceEnabled.value = false;
+      explicitVoiceStop = true;
+    }
     status.value = 'FAILED';
     ElMessage.error('语音识别失败，请重试或改用文本输入。');
   };
   recognition.onend = () => {
+    recognitionActive = false;
     if (status.value === 'LISTENING') status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
+    if (continuousVoiceEnabled.value && !explicitVoiceStop) scheduleVoiceRecognition();
   };
   status.value = 'LISTENING';
-  startRecognition(recognition);
+  try {
+    recognitionActive = true;
+    startRecognition(recognition);
+  } catch (error) {
+    recognitionActive = false;
+    console.warn('Speech recognition start skipped', error);
+  }
 }
 
 function handleStopVoice(): void {
+  continuousVoiceEnabled.value = false;
+  explicitVoiceStop = true;
+  clearVoiceRestartTimer();
+  stopRecognition(speechRecognition.value);
+  if (status.value === 'LISTENING') status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
+}
+
+function handleContinuousVoiceChange(enabled: boolean): void {
+  continuousVoiceEnabled.value = enabled;
+  explicitVoiceStop = !enabled;
+  if (enabled) {
+    handleStartVoice();
+    return;
+  }
+  clearVoiceRestartTimer();
   stopRecognition(speechRecognition.value);
   if (status.value === 'LISTENING') status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
 }
@@ -293,7 +340,7 @@ async function applyAgentResponse(response: AgentResponse): Promise<void> {
   if (response.needConfirm || response.needEventSelection) status.value = 'WAITING_CONFIRM';
   else if (response.needClarify) status.value = 'RECOGNIZED';
   else status.value = 'DONE';
-  await speak(response.speakText || response.replyText);
+  await speakAndResume(response.speakText || response.replyText);
   if (status.value === 'DONE') {
     clearPendingSelection();
     await refreshCalendar();
@@ -310,8 +357,34 @@ function appendMessage(role: ConversationMessage['role'], text: string, inputTyp
 }
 
 function shouldContinueVoiceConversation(response: AgentResponse): boolean {
-  return lastInputType.value === 'VOICE'
-    && Boolean(response.needConfirm || response.needClarify || response.needEventSelection);
+  return !explicitVoiceStop && (
+    continuousVoiceEnabled.value
+    || lastInputType.value === 'VOICE' && Boolean(response.needConfirm || response.needClarify || response.needEventSelection)
+  );
+}
+
+function scheduleVoiceRecognition(delay = 350): void {
+  clearVoiceRestartTimer();
+  if (!continuousVoiceEnabled.value || explicitVoiceStop || speechPlaybackActive || recognitionActive) return;
+  if (status.value === 'WAITING_RESPONSE' || status.value === 'EXECUTING') return;
+  voiceRestartTimerId = window.setTimeout(() => {
+    voiceRestartTimerId = null;
+    handleStartVoice();
+  }, delay);
+}
+
+function clearVoiceRestartTimer(): void {
+  if (voiceRestartTimerId === null) return;
+  window.clearTimeout(voiceRestartTimerId);
+  voiceRestartTimerId = null;
+}
+
+async function speakAndResume(text: string): Promise<void> {
+  speechPlaybackActive = true;
+  if (recognitionActive) stopRecognition(speechRecognition.value);
+  await speak(text);
+  speechPlaybackActive = false;
+  if (continuousVoiceEnabled.value && !explicitVoiceStop) scheduleVoiceRecognition();
 }
 
 function clearPendingSelection(): void {
@@ -374,7 +447,7 @@ async function refreshReminders(): Promise<void> {
       const message = resolveReminderMessage(reminder);
       ElNotification({ title: '日程提醒', message, type: 'warning', duration: 0 });
       showBrowserNotification('日程提醒', message);
-      await speak(`日程提醒：${message}`);
+      await speakAndResume(`日程提醒：${message}`);
     }
   } catch (error) {
     console.error('Reminder refresh failed', error);
@@ -434,28 +507,84 @@ function handleRequestError(error: unknown): void {
 <style scoped>
 .voicecal-page {
   min-height: 100vh;
-  padding: 24px clamp(16px, 3vw, 48px) 44px;
+  padding: 14px clamp(12px, 1.5vw, 28px) 16px;
 }
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(430px, 0.95fr) minmax(720px, 1.55fr) minmax(330px, 0.72fr);
+  grid-template-rows: minmax(580px, calc(100vh - 302px)) 168px;
+  grid-template-areas:
+    "voice calendar side"
+    "workflow workflow workflow";
   gap: 18px;
-  max-width: 1880px;
-  margin: 18px auto 0;
+  width: 100%;
+  margin: 16px auto 0;
+  align-items: stretch;
 }
 
-.main-column,
-.side-column {
-  display: grid;
-  align-content: start;
-  gap: 18px;
+.voice-zone {
+  grid-area: voice;
+  display: flex;
   min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
 }
 
-@media (max-width: 1180px) {
+.voice-zone > .command-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.calendar-zone {
+  grid-area: calendar;
+  min-width: 0;
+  min-height: 0;
+}
+
+.side-zone {
+  grid-area: side;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workflow-zone {
+  grid-area: workflow;
+  min-width: 0;
+  min-height: 0;
+}
+
+.calendar-zone > :first-child,
+.side-zone > :first-child,
+.workflow-zone > :first-child {
+  height: 100%;
+}
+
+@media (max-width: 1560px) {
+  .workspace-grid {
+    grid-template-columns: minmax(390px, 0.9fr) minmax(620px, 1.4fr);
+    grid-template-rows: minmax(560px, auto) minmax(280px, auto) 168px;
+    grid-template-areas:
+      "voice calendar"
+      "voice side"
+      "workflow workflow";
+  }
+}
+
+@media (max-width: 980px) {
+  .voicecal-page {
+    padding-inline: 14px;
+  }
+
   .workspace-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "voice"
+      "calendar"
+      "side"
+      "workflow";
   }
 }
 </style>

@@ -6,10 +6,14 @@
   <component name="ChangeListManager">
     <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkspaceSidebar.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkspaceSidebar.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -150,7 +154,7 @@
       <workItem from="1780063084503" duration="7830000" />
       <workItem from="1780106596657" duration="32433000" />
       <workItem from="1780192564148" duration="14070000" />
-      <workItem from="1780211382709" duration="10179000" />
+      <workItem from="1780211382709" duration="12357000" />
     </task>
     <task id="LOCAL-00001" summary="实体类，VO，DTO">
       <option name="closed" value="true" />

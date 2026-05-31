@@ -58,10 +58,18 @@ export function mapCalendarEventToFullCalendar(event: CalendarEventItem): EventI
     title: event.title,
     start: event.startTime.replace(' ', 'T'),
     end: event.endTime.replace(' ', 'T'),
+    classNames: [resolveCalendarEventClass(event)],
     extendedProps: {
       raw: event,
     },
   };
+}
+
+function resolveCalendarEventClass(event: CalendarEventItem): string {
+  const searchableText = `${event.title} ${event.description ?? ''} ${event.meetingProvider ?? ''}`;
+  if (/会议|组会|讨论|meeting/i.test(searchableText)) return 'calendar-event-meeting';
+  if (/项目|任务|评审|复盘/.test(searchableText)) return 'calendar-event-focus';
+  return 'calendar-event-general';
 }
 
 export async function updateCalendarEvent(
