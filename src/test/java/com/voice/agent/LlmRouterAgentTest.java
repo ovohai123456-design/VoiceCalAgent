@@ -101,6 +101,46 @@ class LlmRouterAgentTest {
     }
 
     @Test
+    void shouldIgnoreInferredRecurrenceForDailyArrangementTitle() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"组会\","
+                        + "\"startTime\":\"2026-06-01 15:00:00\","
+                        + "\"endTime\":\"2026-06-01 16:00:00\","
+                        + "\"recurrenceType\":\"WEEKLY\",\"recurrenceInterval\":1,\"recurrenceCount\":12}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("在下周一下午三点创建一个组会的日常安排");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertNull(routerAgent.route(request).getCreateEventRequest().getRecurrenceType());
+        assertNull(routerAgent.route(request).getCreateEventRequest().getRecurrenceInterval());
+        assertNull(routerAgent.route(request).getCreateEventRequest().getRecurrenceCount());
+        assertEquals(
+                LocalDateTime.of(2026, 6, 1, 15, 0),
+                routerAgent.route(request).getCreateEventRequest().getStartTime()
+        );
+    }
+
+    @Test
+    void shouldKeepExplicitWeeklyRecurrence() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"组会\","
+                        + "\"startTime\":\"2026-06-01 15:00:00\","
+                        + "\"endTime\":\"2026-06-01 16:00:00\","
+                        + "\"recurrenceType\":\"WEEKLY\",\"recurrenceInterval\":1,\"recurrenceCount\":12}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("每周一下午三点创建一个组会");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals("WEEKLY", routerAgent.route(request).getCreateEventRequest().getRecurrenceType());
+        assertEquals(1, routerAgent.route(request).getCreateEventRequest().getRecurrenceInterval());
+        assertEquals(12, routerAgent.route(request).getCreateEventRequest().getRecurrenceCount());
+    }
+
+    @Test
     void shouldUseDefaultDurationWhenRelativeOffsetWasMistakenForDuration() {
         when(jsonExtractor.extractObject("raw")).thenReturn(
                 "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"腾讯会议\","

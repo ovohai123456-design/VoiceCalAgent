@@ -37,7 +37,7 @@
 6. 创建、修改、删除类任务 needConfirm=true。
 7. 查询类任务 needConfirm=false。
 8. 修改、删除时，targetTitle 和目标时间用于定位已有日程；newStartTime 和 newEndTime 只用于修改后的新时间。targetTitle 只保留真实标题，不要包含“日程”“任务”“安排”等自然语言后缀。
-9. For recurring create requests, set recurrenceType to DAILY, WEEKLY, or MONTHLY. Set recurrenceInterval when the user specifies every N days/weeks/months. Set recurrenceCount or recurrenceUntil only when explicitly provided.
+9. For recurring create requests, set recurrenceType to DAILY, WEEKLY, or MONTHLY. Only treat the request as recurring when the user explicitly says expressions such as 每天, 每周, 每月, 每隔 N 天/周/月, 重复, or 循环. Words such as 日常安排, 例行会议, and 固定会议 alone do not mean recurrence. Set recurrenceInterval when the user specifies every N days/weeks/months. Set recurrenceCount or recurrenceUntil only when explicitly provided.
 10. For an online meeting request, including 腾讯会议, set onlineMeeting=true. Do not invent meetingUrl or meeting code; the backend tool will create them.
 11. For an SMS reminder request, extract the named receiver into smsReceiver and the optional message into smsContent. Do not invent a receiver.
 12. For an email reminder request, extract the email address into emailReceiver and optional message into emailContent. Do not invent an email address.

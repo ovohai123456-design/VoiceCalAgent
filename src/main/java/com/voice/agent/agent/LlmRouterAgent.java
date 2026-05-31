@@ -61,6 +61,11 @@ public class LlmRouterAgent {
     private static final Pattern RELATIVE_MINUTES_PATTERN = Pattern.compile("([0-9]+)\\s*分钟(?:之后|以后|后)");
     private static final Pattern NEXT_WEEKDAY_PATTERN = Pattern.compile("(?:下周|下星期)([1-7一二三四五六日天])");
     private static final Pattern DURATION_PATTERN = Pattern.compile("(?:时长|持续)(?:为|是)?\\s*([0-9]+)\\s*(小时|分钟)");
+    private static final Pattern EXPLICIT_RECURRENCE_PATTERN = Pattern.compile(
+            "(?:每天|每日|每周|每星期|每月|每个月|每年|每个(?:工作日|星期|周|月)|"
+                    + "每隔\\s*[0-9一二三四五六七八九十两]+\\s*(?:天|日|周|星期|月|个月|年)|"
+                    + "重复|循环|周期(?:性)?|定期)"
+    );
 
     private final LlmClient llmClient;
     private final LlmJsonExtractor jsonExtractor;
@@ -244,10 +249,12 @@ public class LlmRouterAgent {
         createRequest.setMeetingUrl(trimToNull(slots.getMeetingUrl()));
         createRequest.setReminderMinutes(slots.getReminderMinutes());
         createRequest.setSource("AGENT");
-        createRequest.setRecurrenceType(trimToNull(slots.getRecurrenceType()));
-        createRequest.setRecurrenceInterval(slots.getRecurrenceInterval());
-        createRequest.setRecurrenceCount(slots.getRecurrenceCount());
-        createRequest.setRecurrenceUntil(parseDate(slots.getRecurrenceUntil()));
+        if (hasExplicitRecurrenceIntent(request.getText())) {
+            createRequest.setRecurrenceType(trimToNull(slots.getRecurrenceType()));
+            createRequest.setRecurrenceInterval(slots.getRecurrenceInterval());
+            createRequest.setRecurrenceCount(slots.getRecurrenceCount());
+            createRequest.setRecurrenceUntil(parseDate(slots.getRecurrenceUntil()));
+        }
         createRequest.setOnlineMeeting(Boolean.TRUE.equals(slots.getOnlineMeeting()) || containsOnlineMeetingIntent(request.getText()));
         createRequest.setSmsReceiver(resolveSmsReceiver(slots.getSmsReceiver(), request.getText()));
         createRequest.setSmsContent(trimToNull(slots.getSmsContent()));
@@ -477,6 +484,10 @@ public class LlmRouterAgent {
 
     private String trimToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private boolean hasExplicitRecurrenceIntent(String text) {
+        return StringUtils.hasText(text) && EXPLICIT_RECURRENCE_PATTERN.matcher(text).find();
     }
 
     private String normalizeTargetTitle(String value) {
