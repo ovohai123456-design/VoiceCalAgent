@@ -60,6 +60,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Password hashing for local account authentication -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <!-- SMTP email delivery -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
