@@ -7,9 +7,11 @@ import com.voice.agent.tool.ToolActionStep;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ActionPlanBuilderTest {
     @Test
@@ -37,5 +39,19 @@ class ActionPlanBuilderTest {
         assertEquals("sms.send", after.get(1).getSkillId());
         assertEquals("CONTINUE", after.get(1).getOnFailure());
         assertEquals(2, after.size());
+    }
+
+    @Test
+    void createPlanShouldIgnoreModelPlannedMeetingWithoutExplicitMeetingIntent() {
+        CreateEventRequest request = new CreateEventRequest();
+        request.setTitle("买鸡蛋");
+        request.setStartTime(LocalDateTime.of(2026, 6, 4, 15, 0));
+        request.setEndTime(LocalDateTime.of(2026, 6, 4, 16, 0));
+        request.setOnlineMeeting(false);
+        request.setPlannedToolSteps(Collections.singletonList(
+                ToolActionStep.of(10, "meeting.create", "meeting", Collections.emptyMap())
+        ));
+
+        assertTrue(new ActionPlanBuilder().buildBeforeCalendarCreate(request).isEmpty());
     }
 }

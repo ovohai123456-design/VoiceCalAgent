@@ -312,6 +312,19 @@ class AgentApplicationServiceTest {
     }
 
     @Test
+    void createClarificationShouldAskForTitleAndTimeTogether() {
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent(AgentConstants.INTENT_CREATE_EVENT);
+        plan.getMissingFields().add("title");
+        plan.getMissingFields().add("start_time");
+
+        assertEquals(
+                "你想创建什么日程，并安排在什么时间？",
+                ReflectionTestUtils.invokeMethod(service, "buildClarifyText", plan)
+        );
+    }
+
+    @Test
     void executeShouldCancelPendingActionWhenNewTextDoesNotConfirmIt() {
         AgentExecuteRequest request = executeRequest();
         request.setText("天气怎么样");

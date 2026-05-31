@@ -16,7 +16,7 @@ import java.util.Map;
 public class ActionPlanBuilder {
     public List<ToolActionStep> buildBeforeCalendarCreate(CreateEventRequest request) {
         List<ToolActionStep> steps = new ArrayList<>();
-        if (!Boolean.TRUE.equals(request.getOnlineMeeting()) && !hasMeetingCreate(request.getPlannedToolSteps())) {
+        if (!Boolean.TRUE.equals(request.getOnlineMeeting())) {
             return steps;
         }
         Map<String, Object> arguments = new LinkedHashMap<>();
@@ -49,7 +49,7 @@ public class ActionPlanBuilder {
 
     public List<ToolActionStep> buildBeforeCalendarUpdate(UpdateEventRequest request, CalendarEventVO event) {
         List<ToolActionStep> steps = new ArrayList<>();
-        if (!Boolean.TRUE.equals(request.getOnlineMeeting()) && !hasMeetingCreate(request.getPlannedToolSteps())) {
+        if (!Boolean.TRUE.equals(request.getOnlineMeeting())) {
             return steps;
         }
         Map<String, Object> arguments = new LinkedHashMap<>();
@@ -60,10 +60,4 @@ public class ActionPlanBuilder {
         return steps;
     }
 
-    private boolean hasMeetingCreate(List<ToolActionStep> steps) {
-        if (steps == null) {
-            return false;
-        }
-        return steps.stream().anyMatch(step -> "meeting.create".equals(step.getSkillId()));
-    }
 }

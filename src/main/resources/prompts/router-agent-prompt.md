@@ -32,13 +32,15 @@
 1. 只输出 JSON，不要输出 Markdown，不要解释。
 2. 时间必须转换成 yyyy-MM-dd HH:mm:ss。
 3. 如果只有开始时间，没有结束时间，endTime 置空，后端会补默认时长。
+3.1 创建日程时，只有用户明确提供具体时刻或相对分钟数，才能填写 startTime。用户只提供日期或星期时，将 startTime 和 endTime 置空，并把 startTime 放入 missingFields，不要猜测时间。
+3.2 创建日程时，title 必须是用户要记录的真实事项。“日程”“安排”“任务”等泛化词不能作为 title；缺少真实事项时，将 title 置空并放入 missingFields。
 4. 不确定或缺失字段放入 missingFields。
 5. 不要编造联系人、电话、邮箱、会议链接。
 6. 创建、修改、删除类任务 needConfirm=true。
 7. 查询类任务 needConfirm=false。
 8. 修改、删除时，targetTitle 和目标时间用于定位已有日程；newStartTime 和 newEndTime 只用于修改后的新时间。targetTitle 只保留真实标题，不要包含“日程”“任务”“安排”等自然语言后缀。
 9. For recurring create requests, set recurrenceType to DAILY, WEEKLY, or MONTHLY. Only treat the request as recurring when the user explicitly says expressions such as 每天, 每周, 每月, 每隔 N 天/周/月, 重复, or 循环. Words such as 日常安排, 例行会议, and 固定会议 alone do not mean recurrence. Set recurrenceInterval when the user specifies every N days/weeks/months. Set recurrenceCount or recurrenceUntil only when explicitly provided.
-10. For an online meeting request, including 腾讯会议, set onlineMeeting=true. Do not invent meetingUrl or meeting code; the backend tool will create them.
+10. Only set onlineMeeting=true when the user explicitly requests an online meeting, including 腾讯会议. Do not infer an online meeting from conversation history or ordinary schedule titles. Do not invent meetingUrl or meeting code; the backend tool will create them.
 11. For an SMS reminder request, extract the named receiver into smsReceiver and the optional message into smsContent. Do not invent a receiver.
 12. For an email reminder request, extract the email address into emailReceiver and optional message into emailContent. Do not invent an email address.
 13. 如果当前输入是对上一轮问题的补充，要结合最近对话历史和当前对话状态理解，不要当成全新任务。

@@ -1,6 +1,7 @@
 package com.voice.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.voice.agent.agent.ActionPlanBuilder;
 import com.voice.agent.agent.AgentConstants;
 import com.voice.agent.agent.DefaultValueResolver;
 import com.voice.agent.agent.LlmRouterAgent;
@@ -138,6 +139,73 @@ class LlmRouterAgentTest {
         assertEquals("WEEKLY", routerAgent.route(request).getCreateEventRequest().getRecurrenceType());
         assertEquals(1, routerAgent.route(request).getCreateEventRequest().getRecurrenceInterval());
         assertEquals(12, routerAgent.route(request).getCreateEventRequest().getRecurrenceCount());
+    }
+
+    @Test
+    void shouldDiscardInventedTimeAndMeetingForDateOnlyCreate() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"买鸡蛋\","
+                        + "\"startTime\":\"2026-06-04 15:00:00\","
+                        + "\"endTime\":\"2026-06-04 16:00:00\",\"onlineMeeting\":true}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我创建下周4的日程 买鸡蛋");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertNull(routerAgent.route(request).getCreateEventRequest().getStartTime());
+        assertNull(routerAgent.route(request).getCreateEventRequest().getEndTime());
+        assertFalse(routerAgent.route(request).getCreateEventRequest().getOnlineMeeting());
+        assertEquals(Collections.singletonList("start_time"), routerAgent.route(request).getMissingFields());
+    }
+
+    @Test
+    void shouldAskForRealTitleAndTimeWhenOnlyDateWasProvided() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"日程\","
+                        + "\"startTime\":\"2026-06-04 09:00:00\","
+                        + "\"endTime\":\"2026-06-04 10:00:00\"}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我创建下周4的日程");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertNull(routerAgent.route(request).getCreateEventRequest().getTitle());
+        assertNull(routerAgent.route(request).getCreateEventRequest().getStartTime());
+        assertTrue(routerAgent.route(request).getMissingFields().contains("title"));
+        assertTrue(routerAgent.route(request).getMissingFields().contains("start_time"));
+    }
+
+    @Test
+    void shouldCreateEggTaskWithoutMeetingForExactUserRequest() {
+        SkillDefinition meeting = new SkillDefinition();
+        meeting.setSkillId("meeting.create");
+        when(skillRegistry.get("meeting.create")).thenReturn(meeting);
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"买鸡蛋\","
+                        + "\"startTime\":\"2026-06-03 08:00:00\","
+                        + "\"endTime\":\"2026-06-03 10:00:00\",\"onlineMeeting\":true},"
+                        + "\"skillCalls\":[{\"stepOrder\":10,\"skillId\":\"meeting.create\","
+                        + "\"outputAlias\":\"meeting\",\"arguments\":{}}]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我创建下周三买鸡蛋的任务时间是早上8点到10点");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(
+                LocalDateTime.of(2026, 6, 3, 8, 0),
+                routerAgent.route(request).getCreateEventRequest().getStartTime()
+        );
+        assertEquals(
+                LocalDateTime.of(2026, 6, 3, 10, 0),
+                routerAgent.route(request).getCreateEventRequest().getEndTime()
+        );
+        assertFalse(routerAgent.route(request).getCreateEventRequest().getOnlineMeeting());
+        assertTrue(new ActionPlanBuilder().buildBeforeCalendarCreate(
+                routerAgent.route(request).getCreateEventRequest()
+        ).isEmpty());
     }
 
     @Test

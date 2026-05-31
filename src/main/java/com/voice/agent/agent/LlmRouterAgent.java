@@ -61,6 +61,11 @@ public class LlmRouterAgent {
     private static final Pattern RELATIVE_MINUTES_PATTERN = Pattern.compile("([0-9]+)\\s*分钟(?:之后|以后|后)");
     private static final Pattern NEXT_WEEKDAY_PATTERN = Pattern.compile("(?:下周|下星期)([1-7一二三四五六日天])");
     private static final Pattern DURATION_PATTERN = Pattern.compile("(?:时长|持续)(?:为|是)?\\s*([0-9]+)\\s*(小时|分钟)");
+    private static final Pattern EXPLICIT_CLOCK_TIME_PATTERN = Pattern.compile(
+            "(?:(?:凌晨|早上|上午|中午|下午|晚上)?\\s*(?:[0-9]{1,2}|[一二两三四五六七八九十]{1,3})"
+                    + "\\s*(?:点(?:半|[0-9]{1,2}分)?|时(?!小)(?:[0-9]{1,2}分)?)|"
+                    + "(?:[01]?[0-9]|2[0-3]):[0-5][0-9])"
+    );
     private static final Pattern EXPLICIT_RECURRENCE_PATTERN = Pattern.compile(
             "(?:每天|每日|每周|每星期|每月|每个月|每年|每个(?:工作日|星期|周|月)|"
                     + "每隔\\s*[0-9一二三四五六七八九十两]+\\s*(?:天|日|周|星期|月|个月|年)|"
@@ -238,6 +243,10 @@ public class LlmRouterAgent {
         LocalDateTime endTime = explicitDuration != null && startTime != null
                 ? startTime.plus(explicitDuration)
                 : relativeStart == null ? normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request) : null;
+        if (!hasExplicitStartTime(request.getText())) {
+            startTime = null;
+            endTime = null;
+        }
 
         CreateEventRequest createRequest = new CreateEventRequest();
         createRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
@@ -255,7 +264,7 @@ public class LlmRouterAgent {
             createRequest.setRecurrenceCount(slots.getRecurrenceCount());
             createRequest.setRecurrenceUntil(parseDate(slots.getRecurrenceUntil()));
         }
-        createRequest.setOnlineMeeting(Boolean.TRUE.equals(slots.getOnlineMeeting()) || containsOnlineMeetingIntent(request.getText()));
+        createRequest.setOnlineMeeting(containsOnlineMeetingIntent(request.getText()));
         createRequest.setSmsReceiver(resolveSmsReceiver(slots.getSmsReceiver(), request.getText()));
         createRequest.setSmsContent(trimToNull(slots.getSmsContent()));
         createRequest.setEmailReceiver(trimToNull(slots.getEmailReceiver()));
@@ -323,7 +332,7 @@ public class LlmRouterAgent {
         updateRequest.setLocation(trimToNull(slots.getLocation()));
         updateRequest.setDescription(trimToNull(slots.getDescription()));
         updateRequest.setMeetingUrl(trimToNull(slots.getMeetingUrl()));
-        updateRequest.setOnlineMeeting(Boolean.TRUE.equals(slots.getOnlineMeeting()) || containsOnlineMeetingIntent(request.getText()));
+        updateRequest.setOnlineMeeting(containsOnlineMeetingIntent(request.getText()));
         updateRequest.setPlannedToolSteps(plan.getToolSteps());
         plan.setUpdateEventRequest(updateRequest);
 
@@ -490,6 +499,12 @@ public class LlmRouterAgent {
         return StringUtils.hasText(text) && EXPLICIT_RECURRENCE_PATTERN.matcher(text).find();
     }
 
+    private boolean hasExplicitStartTime(String text) {
+        return StringUtils.hasText(text)
+                && (RELATIVE_MINUTES_PATTERN.matcher(text).find()
+                || EXPLICIT_CLOCK_TIME_PATTERN.matcher(text).find());
+    }
+
     private String normalizeTargetTitle(String value) {
         String title = trimToNull(value);
         String suffix = "任务";
@@ -578,7 +593,12 @@ public class LlmRouterAgent {
         if (StringUtils.hasText(text) && text.contains("腾讯会议")) {
             return "腾讯会议";
         }
-        return trimToNull(modelTitle);
+        String title = trimToNull(modelTitle);
+        return isGenericCreateTitle(title) ? null : title;
+    }
+
+    private boolean isGenericCreateTitle(String title) {
+        return "日程".equals(title) || "安排".equals(title) || "任务".equals(title);
     }
 
     private LocalDateTime normalizeRelativeEnd(

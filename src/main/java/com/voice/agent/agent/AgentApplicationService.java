@@ -1013,6 +1013,11 @@ public class AgentApplicationService {
     }
 
     private String buildClarifyText(AgentPlan plan) {
+        if (AgentConstants.INTENT_CREATE_EVENT.equals(plan.getIntent())
+                && plan.getMissingFields().contains("title")
+                && plan.getMissingFields().contains("start_time")) {
+            return "你想创建什么日程，并安排在什么时间？";
+        }
         if (plan.getMissingFields().contains("start_time")) {
             if (AgentConstants.INTENT_UPDATE_EVENT.equals(plan.getIntent())) {
                 return "你想把日程调整到什么时间？";
