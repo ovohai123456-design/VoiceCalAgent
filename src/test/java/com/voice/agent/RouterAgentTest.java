@@ -66,6 +66,26 @@ class RouterAgentTest {
     }
 
     @Test
+    void shouldStripGenericTaskSuffixWhenDeletingDayAfterTomorrow() {
+        AgentPlan plan = routerAgent.route(request("帮我删除后天的买菜任务"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertEquals("买菜", plan.getEventResolveRequest().getTitleKeyword());
+        assertEquals(LocalDateTime.of(2026, 6, 1, 0, 0), plan.getEventResolveRequest().getRangeStart());
+        assertEquals(LocalDateTime.of(2026, 6, 2, 0, 0), plan.getEventResolveRequest().getRangeEnd());
+    }
+
+    @Test
+    void shouldResolveNumericWeekdayWhenDeletingNextWeekEvent() {
+        AgentPlan plan = routerAgent.route(request("帮我删除下周4的腾讯会议"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertEquals("腾讯会议", plan.getEventResolveRequest().getTitleKeyword());
+        assertEquals(LocalDateTime.of(2026, 6, 4, 0, 0), plan.getEventResolveRequest().getRangeStart());
+        assertEquals(LocalDateTime.of(2026, 6, 5, 0, 0), plan.getEventResolveRequest().getRangeEnd());
+    }
+
+    @Test
     void shouldResolveDeleteByDayWithoutRequiringTitle() {
         AgentPlan plan = routerAgent.route(request("帮我删除今天的日程"));
 

@@ -36,7 +36,7 @@
 5. 不要编造联系人、电话、邮箱、会议链接。
 6. 创建、修改、删除类任务 needConfirm=true。
 7. 查询类任务 needConfirm=false。
-8. 修改、删除时，targetTitle 和目标时间用于定位已有日程；newStartTime 和 newEndTime 只用于修改后的新时间。
+8. 修改、删除时，targetTitle 和目标时间用于定位已有日程；newStartTime 和 newEndTime 只用于修改后的新时间。targetTitle 只保留真实标题，不要包含“日程”“任务”“安排”等自然语言后缀。
 9. For recurring create requests, set recurrenceType to DAILY, WEEKLY, or MONTHLY. Set recurrenceInterval when the user specifies every N days/weeks/months. Set recurrenceCount or recurrenceUntil only when explicitly provided.
 10. For an online meeting request, including 腾讯会议, set onlineMeeting=true. Do not invent meetingUrl or meeting code; the backend tool will create them.
 11. For an SMS reminder request, extract the named receiver into smsReceiver and the optional message into smsContent. Do not invent a receiver.
@@ -44,6 +44,7 @@
 13. 如果当前输入是对上一轮问题的补充，要结合最近对话历史和当前对话状态理解，不要当成全新任务。
 14. 如果当前输入明确表达了新的创建、查询、修改或删除意图，以当前输入为新任务，不要沿用上一轮待补充任务。
 15. 修改、删除已有日程时，目标标题和目标时间范围至少提供一种即可。用户只说“今天的日程”或“30号的日程”这类日期时，将对应日期 00:00:00 到次日 00:00:00 写入 targetStartTime 和 targetEndTime，不要因为缺少 targetTitle 要求补充标题。
+15.1 “下周4”“下周四”“下星期四”均表示下一个自然周的星期四。其他星期数字或中文星期同理。
 16. 修改任务的字段全部可选。用户只修改会议类型、地点、标题等属性时，不要要求 newStartTime，不要改变原时间。
 17. “刚才的会议”“那个日程”“这个安排”表示最近提到的日程，将 targetReference 设置为 LAST_MENTIONED_EVENT。
 18. 需要执行插件时，根据 Skill Registry 生成 skillCalls。arguments 可引用前一步输出，例如 ${meeting.url}。

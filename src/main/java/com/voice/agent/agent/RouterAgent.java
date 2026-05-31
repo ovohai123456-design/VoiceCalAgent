@@ -13,9 +13,11 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.DateTimeException;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,9 +33,10 @@ public class RouterAgent {
     private static final Pattern HOUR_PATTERN = Pattern.compile("(凌晨|早上|上午|中午|下午|晚上)?([0-9]{1,2}|[一二两三四五六七八九十]{1,3})点");
     private static final Pattern MONTH_DAY_PATTERN = Pattern.compile("(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})(?:号|日)?");
     private static final Pattern DAY_OF_MONTH_PATTERN = Pattern.compile("(?<!\\d)(\\d{1,2})(?:号|日)");
+    private static final Pattern NEXT_WEEKDAY_PATTERN = Pattern.compile("(?:下周|下星期)([1-7一二三四五六日天])");
     private static final Pattern RELATIVE_MINUTES_PATTERN = Pattern.compile("([0-9]+)\\s*分钟(?:之后|以后|后)");
     private static final Pattern DURATION_PATTERN = Pattern.compile("(?:时长|持续)(?:为|是)?\\s*([0-9]+)\\s*(小时|分钟)");
-    private static final String DATE_EXPRESSION_REGEX = "(今天|明天|后天|(?:[0-9]{4}年)?[0-9]{1,2}月[0-9]{1,2}[号日]?|[0-9]{1,2}[号日])";
+    private static final String DATE_EXPRESSION_REGEX = "(今天|明天|后天|(?:下周|下星期)[1-7一二三四五六日天]|(?:[0-9]{4}年)?[0-9]{1,2}月[0-9]{1,2}[号日]?|[0-9]{1,2}[号日])";
     private static final Pattern SMS_RECEIVER_PATTERN = Pattern.compile(
             "(?:短信提醒|发短信给)([\\u4e00-\\u9fa5A-Za-z0-9_]{1,20})"
     );
@@ -396,6 +399,11 @@ public class RouterAgent {
         if (text.contains("今天")) {
             return today;
         }
+        Matcher nextWeekdayMatcher = NEXT_WEEKDAY_PATTERN.matcher(text);
+        if (nextWeekdayMatcher.find()) {
+            return today.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+                    .plusDays(parseWeekdayOffset(nextWeekdayMatcher.group(1)));
+        }
         Matcher monthDayMatcher = MONTH_DAY_PATTERN.matcher(text);
         if (monthDayMatcher.find()) {
             int year = monthDayMatcher.group(1) == null ? today.getYear() : Integer.parseInt(monthDayMatcher.group(1));
@@ -406,6 +414,31 @@ public class RouterAgent {
             return safeDate(today.getYear(), today.getMonthValue(), Integer.parseInt(dayMatcher.group(1)));
         }
         return null;
+    }
+
+    private int parseWeekdayOffset(String value) {
+        switch (value) {
+            case "1":
+            case "一":
+                return 0;
+            case "2":
+            case "二":
+                return 1;
+            case "3":
+            case "三":
+                return 2;
+            case "4":
+            case "四":
+                return 3;
+            case "5":
+            case "五":
+                return 4;
+            case "6":
+            case "六":
+                return 5;
+            default:
+                return 6;
+        }
     }
 
     private LocalDate safeDate(int year, int month, int dayOfMonth) {
@@ -543,7 +576,7 @@ public class RouterAgent {
     }
 
     private String normalizeEventTitle(String text) {
-        return text
+        String title = text
                 .replace("帮我", "")
                 .replace("请", "")
                 .replaceAll(DATE_EXPRESSION_REGEX, "")
@@ -552,6 +585,14 @@ public class RouterAgent {
                 .replace("日程", "")
                 .replaceAll("[，。,.？?！!\\s]", "")
                 .trim();
+        return stripGenericTaskSuffix(title);
+    }
+
+    private String stripGenericTaskSuffix(String title) {
+        String suffix = "任务";
+        return title.endsWith(suffix) && title.length() > suffix.length()
+                ? title.substring(0, title.length() - suffix.length())
+                : title;
     }
 
     private void markDeleteAllMatches(EventResolveRequest request, String text) {

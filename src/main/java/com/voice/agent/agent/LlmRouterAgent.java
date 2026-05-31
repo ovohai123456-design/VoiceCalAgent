@@ -22,9 +22,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.HashMap;
@@ -57,6 +59,7 @@ public class LlmRouterAgent {
                     + "[0-9]{1,4}[年/-]|[0-9]{1,2}(?:月|号|日|点))"
     );
     private static final Pattern RELATIVE_MINUTES_PATTERN = Pattern.compile("([0-9]+)\\s*分钟(?:之后|以后|后)");
+    private static final Pattern NEXT_WEEKDAY_PATTERN = Pattern.compile("(?:下周|下星期)([1-7一二三四五六日天])");
     private static final Pattern DURATION_PATTERN = Pattern.compile("(?:时长|持续)(?:为|是)?\\s*([0-9]+)\\s*(小时|分钟)");
 
     private final LlmClient llmClient;
@@ -344,7 +347,7 @@ public class LlmRouterAgent {
     private EventResolveRequest buildResolveRequest(RouterSlots slots, AgentExecuteRequest request) {
         EventResolveRequest resolveRequest = new EventResolveRequest();
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
-        resolveRequest.setTitleKeyword(trimToNull(slots.getTargetTitle()));
+        resolveRequest.setTitleKeyword(normalizeTargetTitle(slots.getTargetTitle()));
         resolveRequest.setReference(trimToNull(slots.getTargetReference()));
         LocalDateTime rawStartTime = parseDateTime(slots.getTargetStartTime());
         LocalDateTime rawEndTime = parseDateTime(slots.getTargetEndTime());
@@ -476,6 +479,14 @@ public class LlmRouterAgent {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    private String normalizeTargetTitle(String value) {
+        String title = trimToNull(value);
+        String suffix = "任务";
+        return title != null && title.endsWith(suffix) && title.length() > suffix.length()
+                ? title.substring(0, title.length() - suffix.length())
+                : title;
+    }
+
     private List<String> copyList(List<String> input) {
         return input == null ? new ArrayList<>() : new ArrayList<>(input);
     }
@@ -492,8 +503,44 @@ public class LlmRouterAgent {
             expectedDate = currentDate.plusDays(1);
         } else if (request.getText().contains("今天")) {
             expectedDate = currentDate;
+        } else {
+            expectedDate = parseNextWeekdayDate(request.getText(), currentDate);
         }
         return expectedDate == null ? value : LocalDateTime.of(expectedDate, value.toLocalTime());
+    }
+
+    private LocalDate parseNextWeekdayDate(String text, LocalDate currentDate) {
+        Matcher matcher = NEXT_WEEKDAY_PATTERN.matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        return currentDate.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+                .plusDays(parseWeekdayOffset(matcher.group(1)));
+    }
+
+    private int parseWeekdayOffset(String value) {
+        switch (value) {
+            case "1":
+            case "一":
+                return 0;
+            case "2":
+            case "二":
+                return 1;
+            case "3":
+            case "三":
+                return 2;
+            case "4":
+            case "四":
+                return 3;
+            case "5":
+            case "五":
+                return 4;
+            case "6":
+            case "六":
+                return 5;
+            default:
+                return 6;
+        }
     }
 
     private LocalDateTime parseRelativeStart(AgentExecuteRequest request) {

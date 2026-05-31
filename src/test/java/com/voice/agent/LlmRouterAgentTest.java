@@ -184,6 +184,53 @@ class LlmRouterAgentTest {
     }
 
     @Test
+    void shouldStripGenericTaskSuffixFromDeleteTargetTitle() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"DELETE_EVENT\",\"slots\":{"
+                        + "\"targetTitle\":\"买菜任务\","
+                        + "\"targetStartTime\":\"2026-05-31 00:00:00\","
+                        + "\"targetEndTime\":\"2026-06-01 00:00:00\"}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我删除后天的买菜任务");
+        request.setCurrentTime("2026-05-30 19:00:00");
+
+        assertEquals("买菜", routerAgent.route(request).getEventResolveRequest().getTitleKeyword());
+        assertEquals(
+                LocalDateTime.of(2026, 6, 1, 0, 0),
+                routerAgent.route(request).getEventResolveRequest().getRangeStart()
+        );
+        assertEquals(
+                LocalDateTime.of(2026, 6, 2, 0, 0),
+                routerAgent.route(request).getEventResolveRequest().getRangeEnd()
+        );
+    }
+
+    @Test
+    void shouldCorrectModelDateForNumericWeekdayNextWeekDelete() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"DELETE_EVENT\",\"slots\":{"
+                        + "\"targetTitle\":\"腾讯会议\","
+                        + "\"targetStartTime\":\"2026-06-03 00:00:00\","
+                        + "\"targetEndTime\":\"2026-06-04 00:00:00\"}}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我删除下周4的腾讯会议");
+        request.setCurrentTime("2026-05-30 19:00:00");
+
+        assertEquals(
+                LocalDateTime.of(2026, 6, 4, 0, 0),
+                routerAgent.route(request).getEventResolveRequest().getRangeStart()
+        );
+        assertEquals(
+                LocalDateTime.of(2026, 6, 5, 0, 0),
+                routerAgent.route(request).getEventResolveRequest().getRangeEnd()
+        );
+    }
+
+    @Test
     void shouldBuildGenericSkillPlanFromRegistryCall() {
         SkillDefinition weather = new SkillDefinition();
         weather.setSkillId("weather.query");
