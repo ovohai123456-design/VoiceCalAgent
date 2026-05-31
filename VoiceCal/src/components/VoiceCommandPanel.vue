@@ -102,11 +102,14 @@ watch(
 <style scoped>
 .command-panel {
   display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  background: #fff;
+  gap: 16px;
+  min-height: 670px;
+  padding: 22px;
+  border: 1px solid rgb(165 211 255 / 22%);
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgb(20 58 100 / 66%), rgb(8 24 49 / 54%));
+  box-shadow: 0 24px 72px rgb(0 6 22 / 38%), inset 0 1px 0 rgb(255 255 255 / 10%);
+  backdrop-filter: blur(30px);
 }
 
 .panel-heading,
@@ -120,25 +123,29 @@ watch(
 
 h2 {
   margin: 0 0 4px;
-  font-size: 17px;
+  color: #f3f9ff;
+  font-size: 20px;
 }
 
 .panel-heading span,
 .voice-actions span,
 .message-bubble span {
-  color: #667085;
+  color: rgb(209 231 253 / 68%);
   font-size: 12px;
 }
 
 .message-list {
   display: grid;
   gap: 10px;
-  min-height: 240px;
-  max-height: 420px;
+  align-content: start;
+  min-height: 470px;
+  max-height: 650px;
   overflow-y: auto;
-  padding: 14px;
-  border-radius: 8px;
-  background: #f7f9fb;
+  padding: 18px;
+  border: 1px solid rgb(160 207 255 / 12%);
+  border-radius: 18px;
+  background: rgb(3 15 32 / 35%);
+  box-shadow: inset 0 1px 22px rgb(0 8 24 / 24%);
 }
 
 .message-row {
@@ -151,19 +158,22 @@ h2 {
 
 .message-bubble {
   max-width: min(78%, 720px);
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgb(16 24 40 / 8%);
+  padding: 12px 14px;
+  border: 1px solid rgb(172 214 255 / 16%);
+  border-radius: 16px 16px 16px 5px;
+  background: linear-gradient(135deg, rgb(22 65 108 / 72%), rgb(15 39 77 / 62%));
+  box-shadow: 0 8px 24px rgb(0 8 28 / 16%);
 }
 
 .message-row-user .message-bubble {
-  background: #dff5ef;
+  border-color: rgb(140 207 255 / 30%);
+  border-radius: 16px 16px 5px 16px;
+  background: linear-gradient(135deg, rgb(29 116 187 / 84%), rgb(78 88 193 / 72%));
 }
 
 .message-bubble p {
   margin: 4px 0 0;
-  color: #344054;
+  color: #ecf8ff;
   line-height: 1.6;
   white-space: pre-wrap;
 }
@@ -171,6 +181,12 @@ h2 {
 .composer {
   display: grid;
   gap: 8px;
+}
+
+.composer :deep(.el-textarea__inner) {
+  min-height: 68px !important;
+  border-radius: 14px;
+  background: rgb(3 16 35 / 46%);
 }
 
 @media (max-width: 720px) {

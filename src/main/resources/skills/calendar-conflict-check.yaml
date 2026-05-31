@@ -11,6 +11,8 @@ input_schema:
   required:
     - start_time
     - end_time
+output_schema:
+  type: object
 executor:
   type: native
   tool_key: calendar.conflict_check

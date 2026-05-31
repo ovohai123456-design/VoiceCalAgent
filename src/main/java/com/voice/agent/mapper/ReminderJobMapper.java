@@ -2,6 +2,7 @@ package com.voice.agent.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.voice.agent.model.entity.ReminderJobEntity;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
@@ -31,4 +32,9 @@ public interface ReminderJobMapper extends BaseMapper<ReminderJobEntity> {
             + "SELECT id FROM calendar_event WHERE recurrence_series_id = #{seriesId}"
             + ")")
     int cancelPendingForSeries(@Param("seriesId") String seriesId);
+
+    @Delete("DELETE FROM reminder_job WHERE event_id IN ("
+            + "SELECT id FROM calendar_event WHERE recurrence_series_id = #{seriesId}"
+            + ")")
+    int deleteForSeries(@Param("seriesId") String seriesId);
 }

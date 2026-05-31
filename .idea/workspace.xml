@@ -6,23 +6,63 @@
   <component name="ChangeListManager">
     <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/api/reminderApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/api/reminderApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/ConflictSuggestionPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/ConflictSuggestionPanel.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/EventCandidatePanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/EventCandidatePanel.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/utils/session.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/utils/session.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkspaceSidebar.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkspaceSidebar.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/types/calendar.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/types/calendar.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ActionPlanBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ActionPlanBuilder.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentConstants.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentPlan.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentPlan.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CalendarAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CalendarAgent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ConversationMemoryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ConversationMemoryService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/RouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/RouterAgent.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/AgentExecuteRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/AgentExecuteRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/ReminderController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/ReminderController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/ReminderJobMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/ReminderJobMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockMeetingProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockMeetingProvider.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/CreateEventRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/CreateEventRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/EventResolveRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/EventResolveRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/RouterPlanResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/RouterPlanResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/RouterSlots.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/RouterSlots.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/UpdateEventActionPayload.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/UpdateEventActionPayload.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/UpdateEventRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/UpdateEventRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/CalendarEventEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/entity/CalendarEventEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/vo/CalendarEventVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/vo/CalendarEventVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/ReminderJobService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/ReminderJobService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/impl/CalendarServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/impl/CalendarServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillDefinition.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillDefinition.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillValidator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillValidator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/GenericToolAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/GenericToolAgent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/MockToolAdapter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/MockToolAdapter.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/prompts/router-agent-prompt.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/prompts/router-agent-prompt.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/schema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/schema.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/calendar-conflict-check.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/calendar-conflict-check.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/calendar-create.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/calendar-create.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/calendar-delete.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/calendar-delete.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/calendar-query.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/calendar-query.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/calendar-resolve-event.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/calendar-resolve-event.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/calendar-update.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/calendar-update.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/contact-query.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/contact-query.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/email-schedule.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/email-schedule.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/meeting-create.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/meeting-create.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/skills/sms-send.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/skills/sms-send.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/AgentApplicationServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/AgentApplicationServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/CalendarAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/CalendarAgentTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/CalendarServiceImplTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/CalendarServiceImplTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/GenericToolAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/GenericToolAgentTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/ReminderJobServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/ReminderJobServiceTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/RouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/RouterAgentTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/SkillRegistryTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/SkillRegistryTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -159,7 +199,7 @@
       <workItem from="1780062885930" duration="185000" />
       <workItem from="1780063084503" duration="7830000" />
       <workItem from="1780106596657" duration="32433000" />
-      <workItem from="1780192564148" duration="2605000" />
+      <workItem from="1780192564148" duration="10420000" />
     </task>
     <task id="LOCAL-00001" summary="实体类，VO，DTO">
       <option name="closed" value="true" />

@@ -161,6 +161,36 @@ class RouterAgentTest {
         assertEquals("\u5f20\u4e09", plan.getCreateEventRequest().getSmsReceiver());
     }
 
+    @Test
+    void fallbackCreateShouldRecognizeTencentMeeting() {
+        AgentPlan plan = routerAgent.route(request("帮我创建下午三点的腾讯会议"));
+
+        assertEquals(AgentConstants.INTENT_CREATE_EVENT, plan.getIntent());
+        assertEquals("腾讯会议", plan.getCreateEventRequest().getTitle());
+        assertTrue(plan.getCreateEventRequest().getOnlineMeeting());
+    }
+
+    @Test
+    void fallbackCreateShouldParseExplicitTimeRangeAndCleanTitle() {
+        AgentPlan plan = routerAgent.route(request("帮我创建一个6月1号的会议时间在早上10点到12点"));
+
+        assertEquals(AgentConstants.INTENT_CREATE_EVENT, plan.getIntent());
+        assertEquals("会议", plan.getCreateEventRequest().getTitle());
+        assertEquals(LocalDateTime.of(2026, 6, 1, 10, 0), plan.getCreateEventRequest().getStartTime());
+        assertEquals(LocalDateTime.of(2026, 6, 1, 12, 0), plan.getCreateEventRequest().getEndTime());
+    }
+
+    @Test
+    void fallbackUpdateShouldAllowRecentEventTencentMeetingUpgradeWithoutTimeChange() {
+        AgentPlan plan = routerAgent.route(request("帮我将刚才的会议修改为腾讯会议，然后把会议链接发我"));
+
+        assertEquals(AgentConstants.INTENT_UPDATE_EVENT, plan.getIntent());
+        assertEquals("LAST_MENTIONED_EVENT", plan.getEventResolveRequest().getReference());
+        assertNull(plan.getUpdateEventRequest().getStartTime());
+        assertTrue(plan.getUpdateEventRequest().getOnlineMeeting());
+        assertFalse(plan.getMissingFields().contains("update_fields"));
+    }
+
     private AgentExecuteRequest request(String text) {
         AgentExecuteRequest request = new AgentExecuteRequest();
         request.setUserId(1L);

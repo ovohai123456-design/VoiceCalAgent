@@ -43,7 +43,7 @@ public class ReminderJobService {
 
     @Transactional
     public void syncForEvent(CalendarEventEntity event) {
-        cancelPendingForEvent(event.getId());
+        deleteForEvent(event.getId());
         createForEvent(event);
     }
 
@@ -111,6 +111,51 @@ public class ReminderJobService {
         if (seriesId != null && !seriesId.trim().isEmpty()) {
             reminderJobMapper.cancelPendingForSeries(seriesId);
         }
+    }
+
+    @Transactional
+    public int deleteForEvent(Long eventId) {
+        if (eventId == null) {
+            return 0;
+        }
+        return reminderJobMapper.delete(
+                Wrappers.lambdaQuery(ReminderJobEntity.class)
+                        .eq(ReminderJobEntity::getEventId, eventId)
+        );
+    }
+
+    @Transactional
+    public int deleteForSeries(String seriesId) {
+        if (seriesId == null || seriesId.trim().isEmpty()) {
+            return 0;
+        }
+        return reminderJobMapper.deleteForSeries(seriesId.trim());
+    }
+
+    @Transactional
+    public int deleteById(Long reminderId, Long userId) {
+        if (reminderId == null) {
+            throw new IllegalArgumentException("reminderId 不能为空");
+        }
+        if (userId == null) {
+            throw new IllegalArgumentException("userId 不能为空");
+        }
+        return reminderJobMapper.delete(
+                Wrappers.lambdaQuery(ReminderJobEntity.class)
+                        .eq(ReminderJobEntity::getId, reminderId)
+                        .eq(ReminderJobEntity::getUserId, userId)
+        );
+    }
+
+    @Transactional
+    public int clearByUser(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId 不能为空");
+        }
+        return reminderJobMapper.delete(
+                Wrappers.lambdaQuery(ReminderJobEntity.class)
+                        .eq(ReminderJobEntity::getUserId, userId)
+        );
     }
 
     public List<ReminderJobVO> listByUser(Long userId) {

@@ -1,0 +1,17 @@
+skill_id: navigation.route
+name: Start navigation
+description: Build a navigation route to a destination
+category: navigation
+enabled: true
+trigger_examples:
+  - 导航到
+  - 带我去
+input_schema:
+  type: object
+  required:
+    - destination
+output_schema:
+  type: object
+executor:
+  type: mock
+  mock_name: navigation.route

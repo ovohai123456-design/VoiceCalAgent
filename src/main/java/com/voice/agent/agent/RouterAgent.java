@@ -102,7 +102,8 @@ public class RouterAgent {
 
     private AgentPlan buildCreatePlan(AgentExecuteRequest request) {
         LocalDateTime currentTime = parseCurrentTime(request.getCurrentTime());
-        LocalDateTime startTime = parseStartTime(request.getText(), currentTime);
+        TimeRange timeRange = parseTimeRange(request.getText(), currentTime);
+        LocalDateTime startTime = timeRange.getStartTime();
         String title = parseTitle(request.getText());
 
         AgentPlan plan = baseCalendarPlan(AgentConstants.INTENT_CREATE_EVENT, AgentConstants.ACTION_CREATE_EVENT, true);
@@ -110,7 +111,7 @@ public class RouterAgent {
         createRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         createRequest.setTitle(title);
         createRequest.setStartTime(startTime);
-        createRequest.setEndTime(null);
+        createRequest.setEndTime(timeRange.getEndTime());
         createRequest.setReminderMinutes(null);
         createRequest.setSource("AGENT");
         createRequest.setOnlineMeeting(containsOnlineMeetingIntent(request.getText()));
@@ -152,13 +153,14 @@ public class RouterAgent {
 
     private AgentPlan buildUpdatePlan(AgentExecuteRequest request) {
         LocalDateTime currentTime = parseCurrentTime(request.getCurrentTime());
-        String[] parts = request.getText().split("(改到|改成|调整到|挪到)", 2);
+        String[] parts = request.getText().split("(修改为|改为|改到|改成|调整到|挪到)", 2);
         String targetText = parts[0];
         String updateText = parts.length > 1 ? parts[1] : "";
         LocalDate explicitTargetDate = parseExplicitDate(targetText, currentTime.toLocalDate());
         LocalDate targetDate = explicitTargetDate == null ? currentTime.toLocalDate() : explicitTargetDate;
         LocalTime targetTime = parseHour(targetText);
-        LocalTime newTime = parseHour(updateText);
+        TimeRange newRange = parseTimeRange(updateText, currentTime);
+        LocalTime newTime = newRange.getStartTime() == null ? null : newRange.getStartTime().toLocalTime();
         if (!hasTimePeriod(updateText) && targetTime != null && newTime != null
                 && targetTime.getHour() >= 12 && newTime.getHour() < 12) {
             newTime = newTime.plusHours(12);
@@ -169,6 +171,7 @@ public class RouterAgent {
         EventResolveRequest resolveRequest = new EventResolveRequest();
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         resolveRequest.setTitleKeyword(parseUpdateTitle(targetText));
+        resolveRequest.setReference(resolveEventReference(targetText));
         fillResolveRangeIfPresent(resolveRequest, explicitTargetDate != null, targetDate, targetTime);
         plan.setEventResolveRequest(resolveRequest);
 
@@ -176,12 +179,15 @@ public class RouterAgent {
         updateRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         LocalDateTime newStart = newTime == null ? null : newDate.atTime(newTime);
         updateRequest.setStartTime(newStart);
-        updateRequest.setEndTime(defaultValueResolver.resolveEndTime(newStart, null));
+        updateRequest.setEndTime(newRange.getEndTime() == null
+                ? defaultValueResolver.resolveEndTime(newStart, null)
+                : newDate.atTime(newRange.getEndTime().toLocalTime()));
+        updateRequest.setOnlineMeeting(containsOnlineMeetingIntent(request.getText()));
         plan.setUpdateEventRequest(updateRequest);
 
         ensureResolveCriteria(plan);
-        if (newStart == null) {
-            plan.getMissingFields().add("start_time");
+        if (newStart == null && !Boolean.TRUE.equals(updateRequest.getOnlineMeeting())) {
+            plan.getMissingFields().add("update_fields");
         }
         plan.getSteps().add(AgentPlanStep.of(1, "RouterAgent", "ROUTE", "router.route"));
         plan.getSteps().add(AgentPlanStep.of(2, "CalendarAgent", "RESOLVE_EVENT", "calendar.event.resolve"));
@@ -229,7 +235,8 @@ public class RouterAgent {
     }
 
     private boolean isUpdate(String text) {
-        return text.contains("改到") || text.contains("改成") || text.contains("调整到") || text.contains("挪到");
+        return text.contains("修改") || text.contains("改为") || text.contains("改到")
+                || text.contains("改成") || text.contains("调整到") || text.contains("挪到");
     }
 
     private boolean isDelete(String text) {
@@ -270,7 +277,8 @@ public class RouterAgent {
         EventResolveRequest request = plan.getEventResolveRequest();
         boolean hasTitle = StringUtils.hasText(request.getTitleKeyword());
         boolean hasTimeRange = request.getRangeStart() != null && request.getRangeEnd() != null;
-        if (hasTitle || hasTimeRange) {
+        boolean hasReference = StringUtils.hasText(request.getReference()) || request.getEventId() != null;
+        if (hasTitle || hasTimeRange || hasReference) {
             plan.getMissingFields().removeIf("title"::equals);
         } else if (!plan.getMissingFields().contains("title")) {
             plan.getMissingFields().add("title");
@@ -288,6 +296,22 @@ public class RouterAgent {
         LocalDate date = parseDate(text, currentTime.toLocalDate());
         LocalTime time = parseHour(text);
         return time == null ? null : date.atTime(time);
+    }
+
+    private TimeRange parseTimeRange(String text, LocalDateTime currentTime) {
+        LocalDate date = parseDate(text, currentTime.toLocalDate());
+        Matcher matcher = HOUR_PATTERN.matcher(text);
+        if (!matcher.find()) {
+            return new TimeRange(null, null);
+        }
+        String firstPeriod = matcher.group(1);
+        LocalTime start = parseMatchedHour(firstPeriod, matcher.group(2));
+        LocalTime end = null;
+        if (matcher.find()) {
+            String secondPeriod = matcher.group(1);
+            end = parseMatchedHour(StringUtils.hasText(secondPeriod) ? secondPeriod : firstPeriod, matcher.group(2));
+        }
+        return new TimeRange(date.atTime(start), end == null ? null : date.atTime(end));
     }
 
     private LocalDate parseDate(String text, LocalDate today) {
@@ -330,8 +354,11 @@ public class RouterAgent {
         if (!matcher.find()) {
             return null;
         }
-        String period = matcher.group(1);
-        int hour = parseHourNumber(matcher.group(2));
+        return parseMatchedHour(matcher.group(1), matcher.group(2));
+    }
+
+    private LocalTime parseMatchedHour(String period, String hourText) {
+        int hour = parseHourNumber(hourText);
         if (("下午".equals(period) || "晚上".equals(period)) && hour < 12) {
             hour += 12;
         }
@@ -406,18 +433,36 @@ public class RouterAgent {
                 .replace("安排", "")
                 .replace("一个", "")
                 .replace("日程", "")
+                .replace("时间在", "")
+                .replace("从", "")
+                .replace("到", "")
                 .replaceAll("[，。,.？?！!\\s]", "")
                 .trim();
         if (title.startsWith("开") && title.length() > 1) {
+            title = title.substring(1);
+        }
+        if (title.startsWith("的") && title.length() > 1) {
             title = title.substring(1);
         }
         return title;
     }
 
     private String parseUpdateTitle(String text) {
+        if (StringUtils.hasText(resolveEventReference(text))) {
+            return null;
+        }
         return normalizeEventTitle(text
                 .replace("把", "")
                 .replace("将", ""));
+    }
+
+    private String resolveEventReference(String text) {
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        return text.contains("刚才") || text.contains("那个") || text.contains("这个")
+                ? "LAST_MENTIONED_EVENT"
+                : null;
     }
 
     private String parseDeleteTitle(String text) {
@@ -442,7 +487,9 @@ public class RouterAgent {
 
     private boolean containsOnlineMeetingIntent(String text) {
         return StringUtils.hasText(text)
-                && ((text.contains("线上") && text.contains("会")) || text.contains("会议链接"));
+                && ((text.contains("线上") && text.contains("会"))
+                || text.contains("会议链接")
+                || text.contains("腾讯会议"));
     }
 
     private String resolveSmsReceiver(String text) {
@@ -451,5 +498,18 @@ public class RouterAgent {
         }
         Matcher matcher = SMS_RECEIVER_PATTERN.matcher(text);
         return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static class TimeRange {
+        private final LocalDateTime startTime;
+        private final LocalDateTime endTime;
+
+        private TimeRange(LocalDateTime startTime, LocalDateTime endTime) {
+            this.startTime = startTime;
+            this.endTime = endTime;
+        }
+
+        public LocalDateTime getStartTime() { return startTime; }
+        public LocalDateTime getEndTime() { return endTime; }
     }
 }

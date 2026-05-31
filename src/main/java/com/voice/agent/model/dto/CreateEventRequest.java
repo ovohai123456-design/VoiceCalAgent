@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import com.voice.agent.tool.ToolActionStep;
 
 public class CreateEventRequest {
     private Long userId;
@@ -15,6 +18,8 @@ public class CreateEventRequest {
     private String location;
     private String description;
     private String meetingUrl;
+    private String meetingProvider;
+    private String meetingCode;
     private Integer reminderMinutes;
     private String source;
     private String idempotencyKey;
@@ -29,6 +34,7 @@ public class CreateEventRequest {
     private String smsContent;
     private String emailReceiver;
     private String emailContent;
+    private List<ToolActionStep> plannedToolSteps = new ArrayList<>();
 
     public Long getUserId() {
         return userId;
@@ -84,6 +90,22 @@ public class CreateEventRequest {
 
     public void setMeetingUrl(String meetingUrl) {
         this.meetingUrl = meetingUrl;
+    }
+
+    public String getMeetingProvider() {
+        return meetingProvider;
+    }
+
+    public void setMeetingProvider(String meetingProvider) {
+        this.meetingProvider = meetingProvider;
+    }
+
+    public String getMeetingCode() {
+        return meetingCode;
+    }
+
+    public void setMeetingCode(String meetingCode) {
+        this.meetingCode = meetingCode;
     }
 
     public Integer getReminderMinutes() {
@@ -178,4 +200,6 @@ public class CreateEventRequest {
     public void setEmailReceiver(String emailReceiver) { this.emailReceiver = emailReceiver; }
     public String getEmailContent() { return emailContent; }
     public void setEmailContent(String emailContent) { this.emailContent = emailContent; }
+    public List<ToolActionStep> getPlannedToolSteps() { return plannedToolSteps; }
+    public void setPlannedToolSteps(List<ToolActionStep> plannedToolSteps) { this.plannedToolSteps = plannedToolSteps; }
 }

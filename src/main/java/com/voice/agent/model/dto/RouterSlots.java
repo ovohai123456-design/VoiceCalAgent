@@ -14,6 +14,7 @@ public class RouterSlots {
     private String targetTitle;
     private String targetStartTime;
     private String targetEndTime;
+    private String targetReference;
     private String newStartTime;
     private String newEndTime;
     private String recurrenceType;
@@ -128,6 +129,14 @@ public class RouterSlots {
 
     public void setTargetEndTime(String targetEndTime) {
         this.targetEndTime = targetEndTime;
+    }
+
+    public String getTargetReference() {
+        return targetReference;
+    }
+
+    public void setTargetReference(String targetReference) {
+        this.targetReference = targetReference;
     }
 
     public String getNewStartTime() {

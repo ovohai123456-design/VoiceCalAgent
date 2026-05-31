@@ -41,9 +41,11 @@ defineEmits<{
 <style scoped>
 .selection-panel {
   padding: 16px;
-  border: 1px solid #f1c56b;
-  border-radius: 8px;
-  background: #fffaf0;
+  border: 1px solid rgb(241 197 107 / 46%);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgb(92 65 34 / 52%), rgb(21 34 55 / 58%));
+  box-shadow: 0 14px 42px rgb(0 6 22 / 24%);
+  backdrop-filter: blur(22px);
 }
 
 .selection-heading {
@@ -65,7 +67,7 @@ h2 {
 
 p {
   margin-top: 4px;
-  color: #76623f;
+  color: rgb(255 225 169 / 78%);
   font-size: 13px;
 }
 
@@ -80,21 +82,21 @@ p {
   gap: 12px;
   width: 100%;
   padding: 12px;
-  border: 1px solid #ead9b4;
-  border-radius: 6px;
-  background: #fff;
-  color: #4d4330;
+  border: 1px solid rgb(237 205 141 / 26%);
+  border-radius: 12px;
+  background: rgb(9 27 51 / 48%);
+  color: rgb(255 235 199 / 82%);
   text-align: left;
   cursor: pointer;
 }
 
 .candidate-row:hover {
-  border-color: #d49b2c;
-  background: #fffdf8;
+  border-color: rgb(241 197 107 / 76%);
+  background: rgb(33 56 78 / 62%);
 }
 
 .candidate-title {
-  color: #1f2937;
+  color: #f7fbff;
   font-weight: 700;
 }
 

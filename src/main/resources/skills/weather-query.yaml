@@ -1,0 +1,17 @@
+skill_id: weather.query
+name: Query weather
+description: Query weather information for a location
+category: weather
+enabled: true
+trigger_examples:
+  - 查询天气
+  - 天气怎么样
+input_schema:
+  type: object
+  required:
+    - location
+output_schema:
+  type: object
+executor:
+  type: mock
+  mock_name: weather.query

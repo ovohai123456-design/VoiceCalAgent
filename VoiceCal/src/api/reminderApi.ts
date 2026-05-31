@@ -27,3 +27,21 @@ export async function listReminderTasks(userId: string): Promise<ReminderTask[]>
 
   return unwrapApiResponse(data);
 }
+
+export async function deleteReminderTask(reminderId: number, userId: string): Promise<number> {
+  const { data } = await http.delete<number | { data: number; success: boolean; message?: string }>(
+    `/api/reminders/${reminderId}`,
+    { params: { userId } },
+  );
+
+  return typeof data === 'number' ? data : unwrapApiResponse(data);
+}
+
+export async function clearReminderTasks(userId: string): Promise<number> {
+  const { data } = await http.delete<number | { data: number; success: boolean; message?: string }>(
+    '/api/reminders',
+    { params: { userId } },
+  );
+
+  return typeof data === 'number' ? data : unwrapApiResponse(data);
+}

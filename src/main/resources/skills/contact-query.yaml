@@ -12,6 +12,8 @@ input_schema:
   required:
     - user_id
     - keyword
+output_schema:
+  type: object
 executor:
   type: native
   tool_key: contact.query

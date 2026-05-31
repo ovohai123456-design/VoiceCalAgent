@@ -8,6 +8,8 @@ trigger_examples:
   - 定位日程
 input_schema:
   type: object
+output_schema:
+  type: object
 executor:
   type: native
   tool_key: calendar.resolve_event

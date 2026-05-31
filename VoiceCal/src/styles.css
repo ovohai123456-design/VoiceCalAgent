@@ -1,8 +1,8 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #182230;
-  background: #f3f5f7;
+  color: #e9f5ff;
+  background: #071426;
 }
 
 * {
@@ -17,8 +17,44 @@ body,
 }
 
 body {
+  position: relative;
   min-height: 100vh;
-  background: #f3f5f7;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% 12%, rgb(36 113 220 / 36%), transparent 30rem),
+    radial-gradient(circle at 88% 18%, rgb(139 92 246 / 26%), transparent 31rem),
+    radial-gradient(circle at 70% 92%, rgb(31 188 202 / 22%), transparent 34rem),
+    linear-gradient(135deg, #061323 0%, #0b1e36 52%, #06111f 100%);
+}
+
+body::before,
+body::after {
+  position: fixed;
+  z-index: 0;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 44% 56% 62% 38%;
+  content: "";
+  filter: blur(70px);
+  opacity: 0.44;
+  pointer-events: none;
+}
+
+body::before {
+  top: 20%;
+  left: -8rem;
+  background: #156ed0;
+}
+
+body::after {
+  right: -8rem;
+  bottom: 7%;
+  background: #7948c8;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
 }
 
 button,
@@ -28,9 +64,48 @@ textarea {
 }
 
 .el-dialog {
-  border-radius: 8px;
+  --el-dialog-bg-color: rgb(10 29 55 / 88%);
+  --el-text-color-primary: #e9f5ff;
+  border: 1px solid rgb(160 207 255 / 18%);
+  border-radius: 18px;
+  box-shadow: 0 22px 70px rgb(0 6 22 / 46%);
+  backdrop-filter: blur(30px);
 }
 
 .el-message {
   min-width: 280px;
+}
+
+.el-tabs__item {
+  color: rgb(205 227 250 / 66%);
+}
+
+.el-tabs__item:hover,
+.el-tabs__item.is-active {
+  color: #91d8ff;
+}
+
+.el-empty__description p,
+.el-form-item__label {
+  color: rgb(205 227 250 / 70%);
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-input-number {
+  --el-input-bg-color: rgb(5 18 38 / 48%);
+  --el-fill-color-blank: rgb(5 18 38 / 48%);
+  --el-input-text-color: #e9f5ff;
+  --el-input-border-color: rgb(160 207 255 / 18%);
+  --el-border-color: rgb(160 207 255 / 18%);
+  --el-text-color-regular: #e9f5ff;
+  box-shadow: 0 0 0 1px rgb(160 207 255 / 18%) inset;
+}
+
+.el-button.is-plain {
+  --el-button-bg-color: rgb(20 57 96 / 44%);
+  --el-button-border-color: rgb(164 210 255 / 24%);
+  --el-button-text-color: #dff3ff;
+  --el-button-hover-bg-color: rgb(43 116 185 / 52%);
+  --el-button-hover-text-color: #fff;
 }

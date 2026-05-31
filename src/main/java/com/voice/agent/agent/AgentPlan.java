@@ -7,6 +7,7 @@ import com.voice.agent.model.dto.UpdateEventRequest;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.voice.agent.tool.ToolActionStep;
 
 /**
  * RouterAgent 输出的结构化计划。
@@ -24,6 +25,7 @@ public class AgentPlan {
     private UpdateEventRequest updateEventRequest;
     private List<String> missingFields = new ArrayList<>();
     private List<AgentPlanStep> steps = new ArrayList<>();
+    private List<ToolActionStep> toolSteps = new ArrayList<>();
 
     public String getIntent() {
         return intent;
@@ -104,4 +106,7 @@ public class AgentPlan {
     public void setSteps(List<AgentPlanStep> steps) {
         this.steps = steps;
     }
+
+    public List<ToolActionStep> getToolSteps() { return toolSteps; }
+    public void setToolSteps(List<ToolActionStep> toolSteps) { this.toolSteps = toolSteps; }
 }

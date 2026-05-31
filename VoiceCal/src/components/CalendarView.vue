@@ -19,6 +19,9 @@
       <div><span>结束</span><strong>{{ selectedEvent.endTime }}</strong></div>
       <div><span>地点</span><strong>{{ selectedEvent.location || '未设置' }}</strong></div>
       <div><span>描述</span><strong>{{ selectedEvent.description || '未设置' }}</strong></div>
+      <div><span>会议类型</span><strong>{{ resolveMeetingProvider(selectedEvent.meetingProvider) }}</strong></div>
+      <div><span>会议号</span><strong>{{ selectedEvent.meetingCode || '未设置' }}</strong></div>
+      <div><span>入会链接</span><strong>{{ selectedEvent.meetingUrl || '未设置' }}</strong></div>
     </div>
     <template #footer>
       <el-button :icon="Edit" @click="openEdit">编辑</el-button>
@@ -163,15 +166,22 @@ async function removeSelectedEvent(): Promise<void> {
   }
 }
 
+function resolveMeetingProvider(provider?: string): string {
+  if (provider === 'TENCENT_MEETING') return '腾讯会议';
+  return provider || '未设置';
+}
+
 defineExpose({ refresh });
 </script>
 
 <style scoped>
 .calendar-panel {
-  padding: 16px;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  background: #fff;
+  padding: 18px;
+  border: 1px solid rgb(160 207 255 / 18%);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgb(17 48 84 / 62%), rgb(8 25 49 / 52%));
+  box-shadow: 0 18px 54px rgb(0 6 22 / 30%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter: blur(26px);
 }
 
 .panel-heading {
@@ -184,12 +194,13 @@ defineExpose({ refresh });
 
 h2 {
   margin: 0 0 4px;
+  color: #f0f8ff;
   font-size: 17px;
 }
 
 .panel-heading span,
 .unit {
-  color: #667085;
+  color: rgb(205 227 250 / 66%);
   font-size: 12px;
 }
 
@@ -198,20 +209,24 @@ h2 {
 }
 
 :deep(.fc) {
-  --fc-border-color: #e5e9ef;
-  --fc-button-bg-color: #245b8a;
-  --fc-button-border-color: #245b8a;
-  --fc-button-hover-bg-color: #1d4b73;
-  --fc-button-hover-border-color: #1d4b73;
-  --fc-button-active-bg-color: #173e60;
-  --fc-button-active-border-color: #173e60;
-  --fc-event-bg-color: #238b76;
-  --fc-event-border-color: #238b76;
-  --fc-today-bg-color: #f0f8f6;
+  --fc-border-color: rgb(161 205 248 / 16%);
+  --fc-button-bg-color: rgb(39 103 164 / 74%);
+  --fc-button-border-color: rgb(137 198 255 / 22%);
+  --fc-button-hover-bg-color: rgb(49 127 197 / 86%);
+  --fc-button-hover-border-color: rgb(162 214 255 / 38%);
+  --fc-button-active-bg-color: rgb(62 117 189 / 92%);
+  --fc-button-active-border-color: rgb(177 220 255 / 44%);
+  --fc-event-bg-color: rgb(34 160 167 / 84%);
+  --fc-event-border-color: rgb(116 235 234 / 58%);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgb(12 34 63 / 46%);
+  --fc-list-event-hover-bg-color: rgb(42 96 145 / 38%);
+  --fc-today-bg-color: rgb(45 133 182 / 20%);
+  color: rgb(225 240 255 / 84%);
 }
 
 :deep(.fc .fc-toolbar-title) {
-  color: #182230;
+  color: #edf8ff;
   font-size: 18px;
 }
 
@@ -228,10 +243,10 @@ h2 {
   justify-content: space-between;
   gap: 14px;
   padding: 10px 0;
-  border-bottom: 1px solid #edf0f3;
+  border-bottom: 1px solid rgb(160 207 255 / 16%);
 }
 
 .detail-list span {
-  color: #667085;
+  color: rgb(205 227 250 / 66%);
 }
 </style>

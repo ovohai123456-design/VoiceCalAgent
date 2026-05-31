@@ -120,6 +120,7 @@ public class CalendarAgent {
         UpdateEventActionPayload payload = new UpdateEventActionPayload();
         payload.setEventId(event.getId());
         payload.setUpdateRequest(updateRequest);
+        payload.setOriginalEvent(event);
 
         PreparedUpdateAction action = new PreparedUpdateAction();
         action.setPayload(payload);
@@ -164,6 +165,7 @@ public class CalendarAgent {
             builder.append(event.getStartTime().format(DISPLAY_TIME_FORMATTER))
                     .append(" ")
                     .append(event.getTitle())
+                    .append(buildMeetingDetailsText(event))
                     .append("；");
         }
         return builder.toString();
@@ -176,6 +178,7 @@ public class CalendarAgent {
                 + " 到 "
                 + event.getEndTime().format(DISPLAY_TIME_FORMATTER)
                 + recurringText
+                + buildMeetingDetailsText(event)
                 + "。";
     }
 
@@ -184,6 +187,7 @@ public class CalendarAgent {
                 + event.getStartTime().format(DISPLAY_TIME_FORMATTER)
                 + " 到 "
                 + event.getEndTime().format(DISPLAY_TIME_FORMATTER)
+                + buildMeetingDetailsText(event)
                 + "。";
     }
 
@@ -206,10 +210,13 @@ public class CalendarAgent {
     }
 
     private String buildUpdateConfirmText(CalendarEventVO event, UpdateEventRequest request) {
+        java.time.LocalDateTime startTime = request.getStartTime() == null ? event.getStartTime() : request.getStartTime();
+        java.time.LocalDateTime endTime = request.getEndTime() == null ? event.getEndTime() : request.getEndTime();
         return "我将把日程「" + event.getTitle() + "」调整为 "
-                + request.getStartTime().format(DISPLAY_TIME_FORMATTER)
+                + startTime.format(DISPLAY_TIME_FORMATTER)
                 + " 到 "
-                + request.getEndTime().format(DISPLAY_TIME_FORMATTER)
+                + endTime.format(DISPLAY_TIME_FORMATTER)
+                + (Boolean.TRUE.equals(request.getOnlineMeeting()) ? "，并创建腾讯会议号和入会链接" : "")
                 + "。请回复确认或取消。";
     }
 
@@ -218,7 +225,21 @@ public class CalendarAgent {
                 + request.getStartTime().format(DISPLAY_TIME_FORMATTER)
                 + " 到 "
                 + request.getEndTime().format(DISPLAY_TIME_FORMATTER)
+                + (Boolean.TRUE.equals(request.getOnlineMeeting()) ? "，确认后将创建腾讯会议并生成会议号" : "")
                 + "。请回复确认或取消。";
+    }
+
+    private String buildMeetingDetailsText(CalendarEventVO event) {
+        if (!StringUtils.hasText(event.getMeetingUrl())) {
+            return "";
+        }
+        String provider = "TENCENT_MEETING".equalsIgnoreCase(event.getMeetingProvider())
+                ? "腾讯会议"
+                : "线上会议";
+        String meetingCode = StringUtils.hasText(event.getMeetingCode())
+                ? "，会议号 " + event.getMeetingCode()
+                : "";
+        return "，" + provider + meetingCode + "，入会链接 " + event.getMeetingUrl();
     }
 
     private String buildConflictReplyText(CreateEventRequest request, List<FreeSlotVO> slots) {

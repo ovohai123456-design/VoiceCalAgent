@@ -16,6 +16,7 @@ public class RouterPlanResponse {
     private RouterSlots slots;
     private List<String> missingFields = new ArrayList<>();
     private List<RouterPlanStepDTO> steps = new ArrayList<>();
+    private List<RouterSkillCallDTO> skillCalls = new ArrayList<>();
 
     public String getIntent() {
         return intent;
@@ -71,5 +72,13 @@ public class RouterPlanResponse {
 
     public void setSteps(List<RouterPlanStepDTO> steps) {
         this.steps = steps;
+    }
+
+    public List<RouterSkillCallDTO> getSkillCalls() {
+        return skillCalls;
+    }
+
+    public void setSkillCalls(List<RouterSkillCallDTO> skillCalls) {
+        this.skillCalls = skillCalls;
     }
 }

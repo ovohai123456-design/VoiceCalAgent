@@ -57,6 +57,7 @@ public class GenericToolAgent {
                 if (!Boolean.TRUE.equals(result.getSuccess())) {
                     throw new IllegalStateException(result.getErrorMessage());
                 }
+                validateOutput(skill, result.getData());
                 workflowService.markLogSuccess(log, result.getData());
                 summary.getResults().add(result);
                 if (StringUtils.hasText(step.getOutputAlias())) {
@@ -110,6 +111,22 @@ public class GenericToolAgent {
             Object value = arguments.get(String.valueOf(field));
             if (value == null || (value instanceof String && !StringUtils.hasText((String) value))) {
                 throw new IllegalArgumentException("Missing skill argument " + field + " for " + skill.getSkillId());
+            }
+        }
+    }
+
+    private void validateOutput(SkillDefinition skill, Object data) {
+        Object required = skill.getOutputSchema().get("required");
+        if (!(required instanceof Collection)) {
+            return;
+        }
+        if (!(data instanceof Map)) {
+            throw new IllegalStateException("Skill output must be an object: " + skill.getSkillId());
+        }
+        for (Object field : (Collection<?>) required) {
+            Object value = ((Map<?, ?>) data).get(String.valueOf(field));
+            if (value == null || (value instanceof String && !StringUtils.hasText((String) value))) {
+                throw new IllegalStateException("Missing skill output " + field + " for " + skill.getSkillId());
             }
         }
     }

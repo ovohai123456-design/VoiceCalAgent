@@ -1,12 +1,15 @@
 package com.voice.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.voice.agent.agent.AgentConstants;
 import com.voice.agent.agent.DefaultValueResolver;
 import com.voice.agent.agent.LlmRouterAgent;
 import com.voice.agent.llm.LlmClient;
 import com.voice.agent.llm.LlmJsonExtractor;
 import com.voice.agent.llm.PromptTemplateService;
 import com.voice.agent.model.dto.AgentExecuteRequest;
+import com.voice.agent.skill.SkillDefinition;
+import com.voice.agent.skill.SkillRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +37,8 @@ class LlmRouterAgentTest {
     private PromptTemplateService promptTemplateService;
     @Mock
     private DefaultValueResolver defaultValueResolver;
+    @Mock
+    private SkillRegistry skillRegistry;
 
     private LlmRouterAgent routerAgent;
 
@@ -43,7 +49,8 @@ class LlmRouterAgentTest {
                 jsonExtractor,
                 promptTemplateService,
                 new ObjectMapper(),
-                defaultValueResolver
+                defaultValueResolver,
+                skillRegistry
         );
         ReflectionTestUtils.setField(routerAgent, "enabled", true);
         when(promptTemplateService.render(anyString(), any())).thenReturn("prompt");
@@ -52,7 +59,8 @@ class LlmRouterAgentTest {
                 "{\"intent\":\"CREATE_EVENT\",\"slots\":{\"title\":\"项目会\"},"
                         + "\"missingFields\":[\"startTime\",\"start_time\",\"\",\"startTime\"]}"
         );
-        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        lenient().when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        when(skillRegistry.list()).thenReturn(Collections.emptyList());
     }
 
     @Test
@@ -111,6 +119,45 @@ class LlmRouterAgentTest {
         assertEquals(
                 LocalDateTime.of(2026, 5, 31, 0, 0),
                 routerAgent.route(request).getEventResolveRequest().getRangeEnd()
+        );
+    }
+
+    @Test
+    void shouldBuildGenericSkillPlanFromRegistryCall() {
+        SkillDefinition weather = new SkillDefinition();
+        weather.setSkillId("weather.query");
+        when(skillRegistry.get("weather.query")).thenReturn(weather);
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"RUN_SKILLS\",\"skillCalls\":[{"
+                        + "\"stepOrder\":10,\"skillId\":\"weather.query\","
+                        + "\"outputAlias\":\"weather\",\"arguments\":{\"location\":\"上海\"}}]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("上海天气怎么样");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(AgentConstants.INTENT_RUN_SKILLS, routerAgent.route(request).getIntent());
+        assertEquals("weather.query", routerAgent.route(request).getToolSteps().get(0).getSkillId());
+        assertEquals("上海", routerAgent.route(request).getToolSteps().get(0).getArguments().get("location"));
+    }
+
+    @Test
+    void shouldNotAskForTimeWhenRecentEventIsUpgradedToTencentMeeting() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"UPDATE_EVENT\",\"slots\":{"
+                        + "\"targetReference\":\"LAST_MENTIONED_EVENT\",\"onlineMeeting\":true},"
+                        + "\"missingFields\":[\"title\",\"start_time\",\"end_time\",\"update_fields\"]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我将刚才的会议修改为腾讯会议，然后把会议链接发我");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(Collections.emptyList(), routerAgent.route(request).getMissingFields());
+        assertEquals(
+                "LAST_MENTIONED_EVENT",
+                routerAgent.route(request).getEventResolveRequest().getReference()
         );
     }
 }

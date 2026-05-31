@@ -91,7 +91,9 @@ public class AgentApplicationService {
         activeState = abandonStateForNewCommand(request, activeState);
 
         request.setHistory(conversationMemoryService.buildHistoryText(request.getUserId(), request.getSessionId(), 8));
-        request.setConversationState(conversationMemoryService.buildStateText(activeState));
+        request.setConversationState(conversationMemoryService.buildStateText(activeState)
+                + ", sessionContext="
+                + conversationMemoryService.buildSessionContextText(request.getUserId(), request.getSessionId()));
         applyConversationContext(request, activeState);
 
         CommandTaskEntity task = commandWorkflowService.createTask(request);
@@ -108,6 +110,7 @@ public class AgentApplicationService {
                     request
             );
             AgentPlan plan = routerAgent.route(request);
+            enrichPlanConversationReference(request, plan);
             if (plan.getCreateEventRequest() != null) {
                 defaultValueResolver.applyCreatePreferences(plan.getCreateEventRequest());
             }
@@ -144,6 +147,10 @@ public class AgentApplicationService {
             }
             if (AgentConstants.INTENT_DELETE_EVENT.equals(plan.getIntent())) {
                 response = prepareDeleteEvent(task, plan);
+                return finalizeExecuteResponse(request, task, response);
+            }
+            if (AgentConstants.INTENT_RUN_SKILLS.equals(plan.getIntent())) {
+                response = executeGenericSkills(task, plan);
                 return finalizeExecuteResponse(request, task, response);
             }
 
@@ -184,6 +191,7 @@ public class AgentApplicationService {
             );
 
             ActionExecution execution = executeAction(action);
+            rememberMentionedEvent(request.getUserId(), request.getSessionId(), execution.getData());
             confirmService.markConfirmed(confirmation);
             commandActionService.markExecuted(action);
             commandWorkflowService.markLogSuccess(executeLog, execution.getData());
@@ -253,6 +261,7 @@ public class AgentApplicationService {
                     selectedRequest
             );
             ActionExecution execution = executeAction(action);
+            rememberMentionedEvent(request.getUserId(), request.getSessionId(), execution.getData());
             confirmService.markConfirmed(confirmation);
             commandActionService.markExecuted(action);
             commandWorkflowService.markLogSuccess(executeLog, execution.getData());
@@ -291,6 +300,7 @@ public class AgentApplicationService {
             commandActionService.updatePayload(action, prepared.getPayload());
             if (shouldAutoExecuteSafeWrites()) {
                 ActionExecution execution = executeAction(action);
+                rememberMentionedEvent(request.getUserId(), request.getSessionId(), execution.getData());
                 confirmService.markConfirmed(confirmation);
                 commandActionService.markExecuted(action);
                 commandWorkflowService.finishSuccess(action.getTaskId(), execution.getIntent(), execution.getReplyText(), execution.getReplyText());
@@ -540,6 +550,7 @@ public class AgentApplicationService {
         );
         try {
             ActionExecution execution = executeAction(action);
+            rememberMentionedEvent(task.getUserId(), task.getSessionId(), execution.getData());
             commandActionService.markExecuted(action);
             commandWorkflowService.markLogSuccess(executeLog, execution.getData());
             commandWorkflowService.finishSuccess(task.getTaskId(), execution.getIntent(), execution.getReplyText(), execution.getReplyText());
@@ -558,13 +569,18 @@ public class AgentApplicationService {
                     action.getTaskId(),
                     actionPlanBuilder.buildBeforeCalendarCreate(request)
             );
-            applyMeetingUrl(request, beforeCreate);
+            applyMeetingDetails(request, beforeCreate);
             CalendarEventVO event = calendarAgent.executeCreate(request);
             executeToolSteps(action.getTaskId(), actionPlanBuilder.buildAfterCalendarCreate(request, event));
             return new ActionExecution(AgentConstants.INTENT_CREATE_EVENT, event, calendarAgent.buildCreateSuccessText(event));
         }
         if (AgentConstants.ACTION_UPDATE_EVENT.equals(action.getActionType())) {
             UpdateEventActionPayload payload = commandActionService.readPayload(action, UpdateEventActionPayload.class);
+            GenericToolAgent.ToolExecutionSummary beforeUpdate = executeToolSteps(
+                    action.getTaskId(),
+                    actionPlanBuilder.buildBeforeCalendarUpdate(payload.getUpdateRequest(), payload.getOriginalEvent())
+            );
+            applyMeetingDetails(payload.getUpdateRequest(), beforeUpdate);
             CalendarEventVO event = calendarAgent.executeUpdate(payload);
             return new ActionExecution(AgentConstants.INTENT_UPDATE_EVENT, event, calendarAgent.buildUpdateSuccessText(event));
         }
@@ -583,14 +599,67 @@ public class AgentApplicationService {
         return genericToolAgent.execute(taskId, steps);
     }
 
-    private void applyMeetingUrl(CreateEventRequest request, GenericToolAgent.ToolExecutionSummary summary) {
+    private void applyMeetingDetails(CreateEventRequest request, GenericToolAgent.ToolExecutionSummary summary) {
         Object meeting = summary.getContext().get("meeting");
         if (!(meeting instanceof Map)) {
             return;
         }
         Object meetingUrl = ((Map<?, ?>) meeting).get("meeting_url");
+        if (meetingUrl == null) meetingUrl = ((Map<?, ?>) meeting).get("url");
         if (meetingUrl != null) {
             request.setMeetingUrl(String.valueOf(meetingUrl));
+        }
+        Object meetingCode = ((Map<?, ?>) meeting).get("meeting_code");
+        if (meetingCode == null) meetingCode = ((Map<?, ?>) meeting).get("code");
+        if (meetingCode != null) {
+            request.setMeetingCode(String.valueOf(meetingCode));
+        }
+        Object provider = ((Map<?, ?>) meeting).get("provider");
+        if (provider != null) {
+            request.setMeetingProvider(String.valueOf(provider));
+        }
+    }
+
+    private void applyMeetingDetails(com.voice.agent.model.dto.UpdateEventRequest request, GenericToolAgent.ToolExecutionSummary summary) {
+        Object meeting = summary.getContext().get("meeting");
+        if (!(meeting instanceof Map)) {
+            return;
+        }
+        Object meetingUrl = ((Map<?, ?>) meeting).get("meeting_url");
+        Object meetingCode = ((Map<?, ?>) meeting).get("meeting_code");
+        if (meetingUrl == null) meetingUrl = ((Map<?, ?>) meeting).get("url");
+        if (meetingCode == null) meetingCode = ((Map<?, ?>) meeting).get("code");
+        Object provider = ((Map<?, ?>) meeting).get("provider");
+        if (meetingUrl != null) request.setMeetingUrl(String.valueOf(meetingUrl));
+        if (meetingCode != null) request.setMeetingCode(String.valueOf(meetingCode));
+        if (provider != null) request.setMeetingProvider(String.valueOf(provider));
+    }
+
+    private void enrichPlanConversationReference(AgentExecuteRequest request, AgentPlan plan) {
+        if (plan == null || plan.getEventResolveRequest() == null) {
+            return;
+        }
+        com.voice.agent.model.dto.EventResolveRequest resolve = plan.getEventResolveRequest();
+        boolean explicitReference = "LAST_MENTIONED_EVENT".equalsIgnoreCase(resolve.getReference())
+                || containsRecentEventReference(request.getText());
+        if (!explicitReference || resolve.getEventId() != null) {
+            return;
+        }
+        Long eventId = conversationMemoryService.findLastMentionedEventId(request.getUserId(), request.getSessionId());
+        if (eventId != null) {
+            resolve.setEventId(eventId);
+            plan.getMissingFields().removeIf("title"::equals);
+        }
+    }
+
+    private boolean containsRecentEventReference(String text) {
+        return StringUtils.hasText(text)
+                && (text.contains("刚才") || text.contains("那个") || text.contains("这个"));
+    }
+
+    private void rememberMentionedEvent(Long userId, String sessionId, Object data) {
+        if (data instanceof CalendarEventVO) {
+            conversationMemoryService.rememberLastMentionedEvent(userId, sessionId, ((CalendarEventVO) data).getId());
         }
     }
 
@@ -612,6 +681,9 @@ public class AgentApplicationService {
         }
         if (AgentConstants.ACTION_QUERY_EVENT.equals(actionType)) {
             return AgentConstants.INTENT_QUERY_EVENT;
+        }
+        if (AgentConstants.ACTION_RUN_SKILLS.equals(actionType)) {
+            return AgentConstants.INTENT_RUN_SKILLS;
         }
         return AgentConstants.INTENT_UNKNOWN;
     }
@@ -646,10 +718,25 @@ public class AgentApplicationService {
         }
 
         String reply = calendarAgent.buildQueryReply(events);
+        if (events.size() == 1) {
+            conversationMemoryService.rememberLastMentionedEvent(task.getUserId(), task.getSessionId(), events.get(0).getId());
+        }
         commandWorkflowService.finishSuccess(task.getTaskId(), AgentConstants.INTENT_QUERY_EVENT, reply, reply);
 
         AgentResponse response = baseResponse(true, task.getTaskId(), reply);
         response.setData(events);
+        return response;
+    }
+
+    private AgentResponse executeGenericSkills(CommandTaskEntity task, AgentPlan plan) {
+        GenericToolAgent.ToolExecutionSummary summary = executeToolSteps(task.getTaskId(), plan.getToolSteps());
+        StringBuilder reply = new StringBuilder("已执行技能：");
+        for (com.voice.agent.tool.ToolExecutionResult result : summary.getResults()) {
+            reply.append(result.getSkillId()).append(" ").append(String.valueOf(result.getData())).append("；");
+        }
+        commandWorkflowService.finishSuccess(task.getTaskId(), AgentConstants.INTENT_RUN_SKILLS, reply.toString(), reply.toString());
+        AgentResponse response = baseResponse(true, task.getTaskId(), reply.toString());
+        response.setData(summary.getContext());
         return response;
     }
 
@@ -877,6 +964,12 @@ public class AgentApplicationService {
                 return "你想创建什么日程？";
             }
             return "我还缺少目标日程信息，你可以补充得更具体一些吗？";
+        }
+        if (plan.getMissingFields().contains("update_fields")) {
+            return "你想修改日程的哪些内容？例如时间、地点，或改为腾讯会议。";
+        }
+        if (plan.getMissingFields().contains("skill_calls")) {
+            return "我还缺少可执行的技能参数，请补充得更具体一些。";
         }
         return "我没有理解清楚，你可以换一种说法吗？";
     }

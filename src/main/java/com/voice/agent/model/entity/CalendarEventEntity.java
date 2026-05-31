@@ -17,6 +17,8 @@ public class CalendarEventEntity {
     private String location;
     private String description;
     private String meetingUrl;
+    private String meetingProvider;
+    private String meetingCode;
     private Integer reminderMinutes;
     private String source;
     private String status;
@@ -89,6 +91,22 @@ public class CalendarEventEntity {
 
     public void setMeetingUrl(String meetingUrl) {
         this.meetingUrl = meetingUrl;
+    }
+
+    public String getMeetingProvider() {
+        return meetingProvider;
+    }
+
+    public void setMeetingProvider(String meetingProvider) {
+        this.meetingProvider = meetingProvider;
+    }
+
+    public String getMeetingCode() {
+        return meetingCode;
+    }
+
+    public void setMeetingCode(String meetingCode) {
+        this.meetingCode = meetingCode;
     }
 
     public Integer getReminderMinutes() {

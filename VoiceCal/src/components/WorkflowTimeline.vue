@@ -87,9 +87,11 @@ defineExpose({ refresh });
 <style scoped>
 .timeline-panel {
   padding: 14px;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid rgb(160 207 255 / 18%);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgb(17 48 84 / 62%), rgb(8 25 49 / 52%));
+  box-shadow: 0 18px 54px rgb(0 6 22 / 28%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter: blur(26px);
 }
 
 .panel-heading,
@@ -106,12 +108,13 @@ defineExpose({ refresh });
 
 h2 {
   margin: 0 0 4px;
+  color: #f0f8ff;
   font-size: 16px;
 }
 
 .panel-heading span,
 .step-row span {
-  color: #667085;
+  color: rgb(205 227 250 / 66%);
   font-size: 12px;
 }
 
@@ -122,7 +125,7 @@ h2 {
 
 .step-row {
   padding: 9px 0;
-  border-bottom: 1px solid #edf0f3;
+  border-bottom: 1px solid rgb(160 207 255 / 14%);
 }
 
 .step-row div {
@@ -134,7 +137,7 @@ h2 {
 
 .step-row strong {
   overflow: hidden;
-  color: #344054;
+  color: #dff2ff;
   font-size: 13px;
   text-overflow: ellipsis;
 }

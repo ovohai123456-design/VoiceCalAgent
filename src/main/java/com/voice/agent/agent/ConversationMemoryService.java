@@ -5,7 +5,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.voice.agent.mapper.ConversationMessageMapper;
 import com.voice.agent.mapper.ConversationStateMapper;
+import com.voice.agent.mapper.ConversationSessionContextMapper;
 import com.voice.agent.model.entity.ConversationMessageEntity;
+import com.voice.agent.model.entity.ConversationSessionContextEntity;
 import com.voice.agent.model.entity.ConversationStateEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,15 +21,18 @@ import java.util.List;
 public class ConversationMemoryService {
     private final ConversationMessageMapper messageMapper;
     private final ConversationStateMapper stateMapper;
+    private final ConversationSessionContextMapper sessionContextMapper;
     private final ObjectMapper objectMapper;
 
     public ConversationMemoryService(
             ConversationMessageMapper messageMapper,
             ConversationStateMapper stateMapper,
+            ConversationSessionContextMapper sessionContextMapper,
             ObjectMapper objectMapper
     ) {
         this.messageMapper = messageMapper;
         this.stateMapper = stateMapper;
+        this.sessionContextMapper = sessionContextMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -153,6 +158,46 @@ public class ConversationMemoryService {
         }
         return "stateType=" + state.getStateType()
                 + ", context=" + state.getContextJson();
+    }
+
+    public ConversationSessionContextEntity getSessionContext(Long userId, String sessionId) {
+        if (userId == null || !StringUtils.hasText(sessionId)) {
+            return null;
+        }
+        return sessionContextMapper.selectOne(
+                new LambdaQueryWrapper<ConversationSessionContextEntity>()
+                        .eq(ConversationSessionContextEntity::getUserId, userId)
+                        .eq(ConversationSessionContextEntity::getSessionId, sessionId)
+                        .last("LIMIT 1")
+        );
+    }
+
+    @Transactional
+    public void rememberLastMentionedEvent(Long userId, String sessionId, Long eventId) {
+        if (userId == null || !StringUtils.hasText(sessionId) || eventId == null) {
+            return;
+        }
+        ConversationSessionContextEntity context = getSessionContext(userId, sessionId);
+        if (context == null) {
+            context = new ConversationSessionContextEntity();
+            context.setUserId(userId);
+            context.setSessionId(sessionId);
+            context.setLastMentionedEventId(eventId);
+            sessionContextMapper.insert(context);
+            return;
+        }
+        context.setLastMentionedEventId(eventId);
+        sessionContextMapper.updateById(context);
+    }
+
+    public Long findLastMentionedEventId(Long userId, String sessionId) {
+        ConversationSessionContextEntity context = getSessionContext(userId, sessionId);
+        return context == null ? null : context.getLastMentionedEventId();
+    }
+
+    public String buildSessionContextText(Long userId, String sessionId) {
+        Long eventId = findLastMentionedEventId(userId, sessionId);
+        return eventId == null ? "无" : "lastMentionedEventId=" + eventId;
     }
 
     private String toJson(Object value) {

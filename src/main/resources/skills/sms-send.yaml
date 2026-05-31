@@ -13,6 +13,8 @@ input_schema:
   required:
     - receiver
     - content
+output_schema:
+  type: object
 executor:
   type: mock
   mock_name: sms.send

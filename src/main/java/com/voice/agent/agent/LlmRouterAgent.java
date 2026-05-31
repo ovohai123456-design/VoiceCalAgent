@@ -11,8 +11,12 @@ import com.voice.agent.model.dto.EventResolveRequest;
 import com.voice.agent.model.dto.QueryEventRequest;
 import com.voice.agent.model.dto.RouterPlanResponse;
 import com.voice.agent.model.dto.RouterPlanStepDTO;
+import com.voice.agent.model.dto.RouterSkillCallDTO;
 import com.voice.agent.model.dto.RouterSlots;
 import com.voice.agent.model.dto.UpdateEventRequest;
+import com.voice.agent.skill.SkillDefinition;
+import com.voice.agent.skill.SkillRegistry;
+import com.voice.agent.tool.ToolActionStep;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -49,6 +53,7 @@ public class LlmRouterAgent {
     private final PromptTemplateService promptTemplateService;
     private final ObjectMapper objectMapper;
     private final DefaultValueResolver defaultValueResolver;
+    private final SkillRegistry skillRegistry;
 
     @Value("${llm.router.enabled:true}")
     private Boolean enabled;
@@ -58,13 +63,15 @@ public class LlmRouterAgent {
             LlmJsonExtractor jsonExtractor,
             PromptTemplateService promptTemplateService,
             ObjectMapper objectMapper,
-            DefaultValueResolver defaultValueResolver
+            DefaultValueResolver defaultValueResolver,
+            SkillRegistry skillRegistry
     ) {
         this.llmClient = llmClient;
         this.jsonExtractor = jsonExtractor;
         this.promptTemplateService = promptTemplateService;
         this.objectMapper = objectMapper;
         this.defaultValueResolver = defaultValueResolver;
+        this.skillRegistry = skillRegistry;
     }
 
     public AgentPlan route(AgentExecuteRequest request) {
@@ -86,6 +93,7 @@ public class LlmRouterAgent {
         variables.put("text", request.getText());
         variables.put("history", StringUtils.hasText(request.getHistory()) ? request.getHistory() : "无");
         variables.put("conversation_state", StringUtils.hasText(request.getConversationState()) ? request.getConversationState() : "无");
+        variables.put("skills", buildSkillCatalog());
         return variables;
     }
 
@@ -111,6 +119,7 @@ public class LlmRouterAgent {
         plan.setNeedConfirm(Boolean.TRUE.equals(response.getNeedConfirm()));
         plan.setMissingFields(normalizeMissingFields(response.getMissingFields()));
         plan.setSteps(convertSteps(response.getSteps(), response.getIntent()));
+        plan.setToolSteps(convertSkillCalls(response.getSkillCalls()));
 
         RouterSlots slots = response.getSlots() == null ? new RouterSlots() : response.getSlots();
         if (AgentConstants.INTENT_CREATE_EVENT.equals(response.getIntent())) {
@@ -121,6 +130,12 @@ public class LlmRouterAgent {
             fillUpdatePlan(plan, slots, request);
         } else if (AgentConstants.INTENT_DELETE_EVENT.equals(response.getIntent())) {
             fillDeletePlan(plan, slots, request);
+        } else if (AgentConstants.INTENT_RUN_SKILLS.equals(response.getIntent())) {
+            plan.setActionType(AgentConstants.ACTION_RUN_SKILLS);
+            plan.setNeedConfirm(false);
+            if (plan.getToolSteps().isEmpty()) {
+                plan.getMissingFields().add("skill_calls");
+            }
         } else {
             plan.setIntent(AgentConstants.INTENT_UNKNOWN);
             if (plan.getMissingFields().isEmpty()) {
@@ -158,6 +173,7 @@ public class LlmRouterAgent {
         createRequest.setSmsContent(trimToNull(slots.getSmsContent()));
         createRequest.setEmailReceiver(trimToNull(slots.getEmailReceiver()));
         createRequest.setEmailContent(trimToNull(slots.getEmailContent()));
+        createRequest.setPlannedToolSteps(plan.getToolSteps());
         plan.setCreateEventRequest(createRequest);
 
         if (!StringUtils.hasText(createRequest.getTitle()) && !plan.getMissingFields().contains("title")) {
@@ -207,11 +223,24 @@ public class LlmRouterAgent {
                 newStart,
                 normalizeRelativeEnd(rawStartTime, rawEndTime, newStart, request)
         ));
+        updateRequest.setTitle(trimToNull(slots.getTitle()));
+        updateRequest.setLocation(trimToNull(slots.getLocation()));
+        updateRequest.setDescription(trimToNull(slots.getDescription()));
+        updateRequest.setMeetingUrl(trimToNull(slots.getMeetingUrl()));
+        updateRequest.setOnlineMeeting(Boolean.TRUE.equals(slots.getOnlineMeeting()) || containsOnlineMeetingIntent(request.getText()));
+        updateRequest.setPlannedToolSteps(plan.getToolSteps());
         plan.setUpdateEventRequest(updateRequest);
 
         ensureResolveCriteria(plan);
-        if (newStart == null && !plan.getMissingFields().contains("start_time")) {
-            plan.getMissingFields().add("start_time");
+        boolean hasMutation = hasUpdateMutation(updateRequest) || !plan.getToolSteps().isEmpty();
+        if (hasMutation) {
+            plan.getMissingFields().removeIf(field ->
+                    "start_time".equals(field)
+                            || "end_time".equals(field)
+                            || "update_fields".equals(field)
+            );
+        } else {
+            plan.getMissingFields().add("update_fields");
         }
         ensureMutationSteps(plan, "UPDATE_EVENT", "calendar.update");
     }
@@ -228,6 +257,7 @@ public class LlmRouterAgent {
         EventResolveRequest resolveRequest = new EventResolveRequest();
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         resolveRequest.setTitleKeyword(trimToNull(slots.getTargetTitle()));
+        resolveRequest.setReference(trimToNull(slots.getTargetReference()));
         LocalDateTime rawStartTime = parseDateTime(slots.getTargetStartTime());
         LocalDateTime rawEndTime = parseDateTime(slots.getTargetEndTime());
         LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
@@ -240,7 +270,8 @@ public class LlmRouterAgent {
         EventResolveRequest request = plan.getEventResolveRequest();
         boolean hasTitle = StringUtils.hasText(request.getTitleKeyword());
         boolean hasTimeRange = request.getRangeStart() != null && request.getRangeEnd() != null;
-        if (hasTitle || hasTimeRange) {
+        boolean hasReference = StringUtils.hasText(request.getReference()) || request.getEventId() != null;
+        if (hasTitle || hasTimeRange || hasReference) {
             plan.getMissingFields().removeIf("title"::equals);
         } else if (!plan.getMissingFields().contains("title")) {
             plan.getMissingFields().add("title");
@@ -278,6 +309,52 @@ public class LlmRouterAgent {
             }
         }
         return steps;
+    }
+
+    private List<ToolActionStep> convertSkillCalls(List<RouterSkillCallDTO> input) {
+        List<ToolActionStep> steps = new ArrayList<>();
+        if (input == null) {
+            return steps;
+        }
+        for (RouterSkillCallDTO call : input) {
+            if (call == null || !StringUtils.hasText(call.getSkillId())) {
+                continue;
+            }
+            skillRegistry.get(call.getSkillId());
+            ToolActionStep step = ToolActionStep.of(
+                    call.getStepOrder() == null ? 10 + steps.size() * 10 : call.getStepOrder(),
+                    call.getSkillId().trim(),
+                    trimToNull(call.getOutputAlias()),
+                    call.getArguments()
+            );
+            step.setOnFailure(StringUtils.hasText(call.getOnFailure()) ? call.getOnFailure() : "STOP");
+            steps.add(step);
+        }
+        return steps;
+    }
+
+    private String buildSkillCatalog() {
+        try {
+            List<SkillDefinition> enabled = new ArrayList<>();
+            for (SkillDefinition skill : skillRegistry.list()) {
+                if (Boolean.TRUE.equals(skill.getEnabled())) {
+                    enabled.add(skill);
+                }
+            }
+            return objectMapper.writeValueAsString(enabled);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Skill Registry 序列化失败", e);
+        }
+    }
+
+    private boolean hasUpdateMutation(UpdateEventRequest request) {
+        return request.getStartTime() != null
+                || request.getEndTime() != null
+                || StringUtils.hasText(request.getTitle())
+                || StringUtils.hasText(request.getLocation())
+                || StringUtils.hasText(request.getDescription())
+                || StringUtils.hasText(request.getMeetingUrl())
+                || Boolean.TRUE.equals(request.getOnlineMeeting());
     }
 
     private void ensureCreateSteps(AgentPlan plan) {
@@ -384,7 +461,9 @@ public class LlmRouterAgent {
 
     private boolean containsOnlineMeetingIntent(String text) {
         return StringUtils.hasText(text)
-                && ((text.contains("线上") && text.contains("会")) || text.contains("会议链接"));
+                && ((text.contains("线上") && text.contains("会"))
+                || text.contains("会议链接")
+                || text.contains("腾讯会议"));
     }
 
     private String resolveSmsReceiver(String slotValue, String text) {

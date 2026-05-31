@@ -8,6 +8,8 @@ export interface CalendarEventItem {
   location?: string;
   description?: string;
   meetingUrl?: string;
+  meetingProvider?: string;
+  meetingCode?: string;
   reminderMinutes?: number;
   source?: string;
   status?: string;

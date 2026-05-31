@@ -129,6 +129,8 @@ public class CalendarServiceImpl implements CalendarService {
         entity.setLocation(trimToNull(request.getLocation()));
         entity.setDescription(trimToNull(request.getDescription()));
         entity.setMeetingUrl(trimToNull(request.getMeetingUrl()));
+        entity.setMeetingProvider(trimToNull(request.getMeetingProvider()));
+        entity.setMeetingCode(trimToNull(request.getMeetingCode()));
         entity.setReminderMinutes(request.getReminderMinutes());
         entity.setSource(StringUtils.hasText(request.getSource()) ? request.getSource().trim() : SOURCE_API);
         entity.setStatus(STATUS_ACTIVE);
@@ -235,6 +237,12 @@ public class CalendarServiceImpl implements CalendarService {
         if (request.getMeetingUrl() != null) {
             entity.setMeetingUrl(trimToNull(request.getMeetingUrl()));
         }
+        if (request.getMeetingProvider() != null) {
+            entity.setMeetingProvider(trimToNull(request.getMeetingProvider()));
+        }
+        if (request.getMeetingCode() != null) {
+            entity.setMeetingCode(trimToNull(request.getMeetingCode()));
+        }
         if (request.getReminderMinutes() != null) {
             entity.setReminderMinutes(request.getReminderMinutes());
         }
@@ -269,14 +277,14 @@ public class CalendarServiceImpl implements CalendarService {
                 series.setUpdatedAt(LocalDateTime.now());
                 recurrenceSeriesMapper.updateById(series);
             }
-            reminderJobService.cancelPendingForSeries(entity.getRecurrenceSeriesId());
+            reminderJobService.deleteForSeries(entity.getRecurrenceSeriesId());
             return deletedCount > 0;
         }
         entity.setStatus(STATUS_DELETED);
         entity.setUpdatedAt(LocalDateTime.now());
         boolean deleted = calendarEventMapper.updateById(entity) > 0;
         if (deleted) {
-            reminderJobService.cancelPendingForEvent(eventId);
+            reminderJobService.deleteForEvent(eventId);
         }
         return deleted;
     }
@@ -326,6 +334,12 @@ public class CalendarServiceImpl implements CalendarService {
     public List<CalendarEventVO> findCandidateEvents(EventResolveRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("事件定位参数不能为空");
+        }
+        if (request.getEventId() != null) {
+            return java.util.Collections.singletonList(toVO(getActiveEvent(
+                    request.getEventId(),
+                    resolveUserId(request.getUserId())
+            )));
         }
         QueryEventRequest query = new QueryEventRequest();
         query.setUserId(request.getUserId());
@@ -425,6 +439,8 @@ public class CalendarServiceImpl implements CalendarService {
         entity.setLocation(trimToNull(request.getLocation()));
         entity.setDescription(trimToNull(request.getDescription()));
         entity.setMeetingUrl(trimToNull(request.getMeetingUrl()));
+        entity.setMeetingProvider(trimToNull(request.getMeetingProvider()));
+        entity.setMeetingCode(trimToNull(request.getMeetingCode()));
         entity.setReminderMinutes(request.getReminderMinutes());
         entity.setSource(StringUtils.hasText(request.getSource()) ? request.getSource().trim() : SOURCE_API);
         entity.setStatus(STATUS_ACTIVE);
@@ -587,6 +603,8 @@ public class CalendarServiceImpl implements CalendarService {
         vo.setLocation(entity.getLocation());
         vo.setDescription(entity.getDescription());
         vo.setMeetingUrl(entity.getMeetingUrl());
+        vo.setMeetingProvider(entity.getMeetingProvider());
+        vo.setMeetingCode(entity.getMeetingCode());
         vo.setReminderMinutes(entity.getReminderMinutes());
         vo.setSource(entity.getSource());
         vo.setStatus(entity.getStatus());

@@ -11,6 +11,8 @@ input_schema:
   type: object
   required:
     - event_id
+output_schema:
+  type: object
 executor:
   type: native
   tool_key: calendar.update

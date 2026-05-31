@@ -1,6 +1,7 @@
 package com.voice.agent.agent;
 
 import com.voice.agent.model.dto.CreateEventRequest;
+import com.voice.agent.model.dto.UpdateEventRequest;
 import com.voice.agent.model.vo.CalendarEventVO;
 import com.voice.agent.tool.ToolActionStep;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ import java.util.Map;
 public class ActionPlanBuilder {
     public List<ToolActionStep> buildBeforeCalendarCreate(CreateEventRequest request) {
         List<ToolActionStep> steps = new ArrayList<>();
-        if (!Boolean.TRUE.equals(request.getOnlineMeeting())) {
+        if (!Boolean.TRUE.equals(request.getOnlineMeeting()) && !hasMeetingCreate(request.getPlannedToolSteps())) {
             return steps;
         }
         Map<String, Object> arguments = new LinkedHashMap<>();
@@ -57,5 +58,25 @@ public class ActionPlanBuilder {
             steps.add(email);
         }
         return steps;
+    }
+
+    public List<ToolActionStep> buildBeforeCalendarUpdate(UpdateEventRequest request, CalendarEventVO event) {
+        List<ToolActionStep> steps = new ArrayList<>();
+        if (!Boolean.TRUE.equals(request.getOnlineMeeting()) && !hasMeetingCreate(request.getPlannedToolSteps())) {
+            return steps;
+        }
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        arguments.put("title", StringUtils.hasText(request.getTitle()) ? request.getTitle() : event.getTitle());
+        arguments.put("start_time", request.getStartTime() == null ? event.getStartTime() : request.getStartTime());
+        arguments.put("end_time", request.getEndTime() == null ? event.getEndTime() : request.getEndTime());
+        steps.add(ToolActionStep.of(10, "meeting.create", "meeting", arguments));
+        return steps;
+    }
+
+    private boolean hasMeetingCreate(List<ToolActionStep> steps) {
+        if (steps == null) {
+            return false;
+        }
+        return steps.stream().anyMatch(step -> "meeting.create".equals(step.getSkillId()));
     }
 }

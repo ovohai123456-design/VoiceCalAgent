@@ -84,6 +84,8 @@ CREATE TABLE IF NOT EXISTS calendar_event (
     location VARCHAR(255) NULL,
     description TEXT NULL,
     meeting_url VARCHAR(500) NULL,
+    meeting_provider VARCHAR(50) NULL,
+    meeting_code VARCHAR(32) NULL,
     reminder_minutes INT NULL,
     source VARCHAR(50) NOT NULL DEFAULT 'AGENT',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
@@ -235,4 +237,16 @@ CREATE TABLE IF NOT EXISTS conversation_state (
     KEY idx_conv_state_user_session (user_id, session_id, status, created_at),
     KEY idx_conv_state_task (task_id),
     KEY idx_conv_state_expire (expire_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversation_session_context (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    session_id VARCHAR(100) NOT NULL,
+    last_mentioned_event_id BIGINT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_conv_session_context (user_id, session_id),
+    KEY idx_conv_context_event (last_mentioned_event_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -10,7 +10,9 @@ import java.util.Set;
 @Component
 public class SkillValidator {
     private static final Set<String> EXECUTOR_TYPES = new HashSet<>(Arrays.asList("native", "mock", "scheduler"));
-    private static final Set<String> MOCK_NAMES = new HashSet<>(Arrays.asList("meeting.create", "sms.send", "email.send"));
+    private static final Set<String> MOCK_NAMES = new HashSet<>(Arrays.asList(
+            "meeting.create", "sms.send", "email.send", "weather.query", "navigation.route"
+    ));
 
     private final NativeToolRegistry nativeToolRegistry;
 
@@ -25,6 +27,8 @@ public class SkillValidator {
         if (!StringUtils.hasText(definition.getName()) || !StringUtils.hasText(definition.getDescription())) {
             throw new IllegalArgumentException("Skill name and description must not be empty: " + definition.getSkillId());
         }
+        validateSchema(definition.getInputSchema(), "input_schema", definition.getSkillId());
+        validateSchema(definition.getOutputSchema(), "output_schema", definition.getSkillId());
         ExecutorDefinition executor = definition.getExecutor();
         if (executor == null || !EXECUTOR_TYPES.contains(executor.getType())) {
             throw new IllegalArgumentException("Unsupported executor type for skill: " + definition.getSkillId());
@@ -37,6 +41,12 @@ public class SkillValidator {
         }
         if ("scheduler".equals(executor.getType()) && !StringUtils.hasText(executor.getJobType())) {
             throw new IllegalArgumentException("Scheduler job_type must not be empty: " + definition.getSkillId());
+        }
+    }
+
+    private void validateSchema(java.util.Map<String, Object> schema, String name, String skillId) {
+        if (schema == null || !"object".equals(schema.get("type"))) {
+            throw new IllegalArgumentException(name + " must define type=object: " + skillId);
         }
     }
 }

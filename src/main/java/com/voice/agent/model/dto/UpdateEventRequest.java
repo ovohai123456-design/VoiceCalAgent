@@ -3,6 +3,9 @@ package com.voice.agent.model.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import com.voice.agent.tool.ToolActionStep;
 
 public class UpdateEventRequest {
     private Long userId;
@@ -14,8 +17,12 @@ public class UpdateEventRequest {
     private String location;
     private String description;
     private String meetingUrl;
+    private String meetingProvider;
+    private String meetingCode;
+    private Boolean onlineMeeting;
     private Integer reminderMinutes;
     private String sourceTaskId;
+    private List<ToolActionStep> plannedToolSteps = new ArrayList<>();
 
     public Long getUserId() {
         return userId;
@@ -73,6 +80,13 @@ public class UpdateEventRequest {
         this.meetingUrl = meetingUrl;
     }
 
+    public String getMeetingProvider() { return meetingProvider; }
+    public void setMeetingProvider(String meetingProvider) { this.meetingProvider = meetingProvider; }
+    public String getMeetingCode() { return meetingCode; }
+    public void setMeetingCode(String meetingCode) { this.meetingCode = meetingCode; }
+    public Boolean getOnlineMeeting() { return onlineMeeting; }
+    public void setOnlineMeeting(Boolean onlineMeeting) { this.onlineMeeting = onlineMeeting; }
+
     public Integer getReminderMinutes() {
         return reminderMinutes;
     }
@@ -88,4 +102,7 @@ public class UpdateEventRequest {
     public void setSourceTaskId(String sourceTaskId) {
         this.sourceTaskId = sourceTaskId;
     }
+
+    public List<ToolActionStep> getPlannedToolSteps() { return plannedToolSteps; }
+    public void setPlannedToolSteps(List<ToolActionStep> plannedToolSteps) { this.plannedToolSteps = plannedToolSteps; }
 }

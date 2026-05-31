@@ -1,6 +1,6 @@
 skill_id: meeting.create
-name: Create online meeting
-description: Create an online meeting link before a calendar event is written
+name: Create Tencent Meeting
+description: Create a Tencent Meeting number and join link before a calendar event is written
 category: meeting
 enabled: true
 trigger_examples:
@@ -8,12 +8,18 @@ trigger_examples:
   - meeting link
   - 线上会议
   - 会议链接
+  - 腾讯会议
 input_schema:
   type: object
   required:
     - title
     - start_time
     - end_time
+output_schema:
+  type: object
+  required:
+    - code
+    - url
 executor:
   type: mock
   mock_name: meeting.create

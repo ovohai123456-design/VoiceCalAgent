@@ -12,6 +12,8 @@ input_schema:
   required:
     - event_id
     - user_id
+output_schema:
+  type: object
 executor:
   type: native
   tool_key: calendar.delete

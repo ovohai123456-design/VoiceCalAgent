@@ -39,13 +39,15 @@ const tagType = computed(() => ({
   justify-content: space-between;
   align-items: center;
   gap: 18px;
-  max-width: 1720px;
-  min-height: 64px;
+  max-width: 1880px;
+  min-height: 70px;
   margin: 0 auto;
-  padding: 10px 16px;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  background: #fff;
+  padding: 12px 18px;
+  border: 1px solid rgb(160 207 255 / 18%);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgb(18 51 90 / 60%), rgb(9 27 52 / 52%));
+  box-shadow: 0 14px 48px rgb(0 6 22 / 28%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter: blur(26px);
 }
 
 .brand,
@@ -58,18 +60,18 @@ const tagType = computed(() => ({
 .brand-icon {
   width: 24px;
   height: 24px;
-  color: #176b5b;
+  color: #8ed8ff;
 }
 
 h1 {
   margin: 0;
-  color: #182230;
+  color: #f0f8ff;
   font-size: 19px;
 }
 
 .brand span,
 .clock {
-  color: #667085;
+  color: rgb(205 227 250 / 68%);
   font-size: 13px;
 }
 

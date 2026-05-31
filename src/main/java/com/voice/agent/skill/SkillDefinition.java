@@ -13,6 +13,7 @@ public class SkillDefinition {
     private Boolean enabled = true;
     private List<String> triggerExamples = new ArrayList<>();
     private Map<String, Object> inputSchema = new LinkedHashMap<>();
+    private Map<String, Object> outputSchema = new LinkedHashMap<>();
     private ExecutorDefinition executor;
 
     public String getSkillId() {
@@ -70,6 +71,9 @@ public class SkillDefinition {
     public void setInputSchema(Map<String, Object> inputSchema) {
         this.inputSchema = inputSchema;
     }
+
+    public Map<String, Object> getOutputSchema() { return outputSchema; }
+    public void setOutputSchema(Map<String, Object> outputSchema) { this.outputSchema = outputSchema; }
 
     public ExecutorDefinition getExecutor() {
         return executor;

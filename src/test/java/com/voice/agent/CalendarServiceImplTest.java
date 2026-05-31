@@ -79,7 +79,7 @@ class CalendarServiceImplTest {
         assertEquals(true, service.deleteEvent(10L, 1L, "SERIES"));
 
         verify(calendarEventMapper).softDeleteSeries("series_test", 1L);
-        verify(reminderJobService).cancelPendingForSeries("series_test");
+        verify(reminderJobService).deleteForSeries("series_test");
     }
 
     private CalendarEventEntity created(Long id, Integer index) {

@@ -1,8 +1,11 @@
 package com.voice.agent.model.dto;
 
+import com.voice.agent.model.vo.CalendarEventVO;
+
 public class UpdateEventActionPayload {
     private Long eventId;
     private UpdateEventRequest updateRequest;
+    private CalendarEventVO originalEvent;
 
     public Long getEventId() {
         return eventId;
@@ -19,4 +22,7 @@ public class UpdateEventActionPayload {
     public void setUpdateRequest(UpdateEventRequest updateRequest) {
         this.updateRequest = updateRequest;
     }
+
+    public CalendarEventVO getOriginalEvent() { return originalEvent; }
+    public void setOriginalEvent(CalendarEventVO originalEvent) { this.originalEvent = originalEvent; }
 }

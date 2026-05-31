@@ -39,6 +39,8 @@
           :reminders="reminders"
           :notification-button-text="notificationButtonText"
           @request-notification="enableBrowserNotifications"
+          @delete-reminder="handleDeleteReminder"
+          @clear-reminders="handleClearReminders"
         />
         <WorkflowTimeline ref="workflowTimelineRef" :task-id="taskId" />
       </aside>
@@ -47,11 +49,11 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage, ElNotification } from 'element-plus';
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
-import { listReminderTasks, type ReminderTask } from '@/api/reminderApi';
+import { clearReminderTasks, deleteReminderTask, listReminderTasks, type ReminderTask } from '@/api/reminderApi';
 import CalendarView from '@/components/CalendarView.vue';
 import ConflictSuggestionPanel from '@/components/ConflictSuggestionPanel.vue';
 import EventCandidatePanel from '@/components/EventCandidatePanel.vue';
@@ -317,6 +319,29 @@ async function enableBrowserNotifications(): Promise<void> {
   else ElMessage.warning('系统通知未开启，请检查浏览器站点权限。');
 }
 
+async function handleDeleteReminder(reminder: ReminderTask): Promise<void> {
+  try {
+    await ElMessageBox.confirm('确认删除该提醒任务吗？', '删除提醒任务', { type: 'warning' });
+    await deleteReminderTask(reminder.id, DEFAULT_USER_ID);
+    await pollReminders();
+    ElMessage.success('提醒任务已删除');
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('提醒任务删除失败');
+  }
+}
+
+async function handleClearReminders(): Promise<void> {
+  try {
+    await ElMessageBox.confirm('确认清空全部提醒任务吗？该操作不可恢复。', '清空提醒任务', { type: 'warning' });
+    await clearReminderTasks(DEFAULT_USER_ID);
+    notifiedReminderIds.clear();
+    await pollReminders();
+    ElMessage.success('提醒任务已清空');
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('提醒任务清空失败');
+  }
+}
+
 function resolveReminderTitle(reminder: ReminderTask): string {
   if (!reminder.jobPayloadJson) return `日程 ${reminder.eventId} 即将开始`;
   try {
@@ -339,22 +364,22 @@ function handleRequestError(error: unknown): void {
 <style scoped>
 .voicecal-page {
   min-height: 100vh;
-  padding: 16px;
+  padding: 24px clamp(16px, 3vw, 48px) 44px;
 }
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 14px;
-  max-width: 1720px;
-  margin: 14px auto 0;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  max-width: 1880px;
+  margin: 18px auto 0;
 }
 
 .main-column,
 .side-column {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 18px;
   min-width: 0;
 }
 

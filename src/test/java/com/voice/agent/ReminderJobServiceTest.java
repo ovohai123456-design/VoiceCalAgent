@@ -65,4 +65,22 @@ class ReminderJobServiceTest {
         assertEquals("EXECUTED", job.getStatus());
         verify(reminderJobMapper).updateById(job);
     }
+
+    @Test
+    void shouldDeleteReminderJobsForDeletedEvent() {
+        when(reminderJobMapper.delete(any())).thenReturn(2);
+
+        assertEquals(2, service.deleteForEvent(100L));
+
+        verify(reminderJobMapper).delete(any());
+    }
+
+    @Test
+    void shouldDeleteEveryReminderJobForUser() {
+        when(reminderJobMapper.delete(any())).thenReturn(3);
+
+        assertEquals(3, service.clearByUser(1L));
+
+        verify(reminderJobMapper).delete(any());
+    }
 }

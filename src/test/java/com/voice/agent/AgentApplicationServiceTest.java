@@ -15,6 +15,7 @@ import com.voice.agent.agent.RouterAgent;
 import com.voice.agent.model.dto.AgentConfirmRequest;
 import com.voice.agent.model.dto.AgentExecuteRequest;
 import com.voice.agent.model.dto.CreateEventRequest;
+import com.voice.agent.model.dto.EventResolveRequest;
 import com.voice.agent.model.entity.CommandActionEntity;
 import com.voice.agent.model.entity.CommandTaskEntity;
 import com.voice.agent.model.entity.ConversationStateEntity;
@@ -278,6 +279,24 @@ class AgentApplicationServiceTest {
     }
 
     @Test
+    void shouldResolveRecentEventReferenceFromConversationContext() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("帮我把刚才的会议改成腾讯会议");
+        EventResolveRequest resolveRequest = new EventResolveRequest();
+        resolveRequest.setReference("LAST_MENTIONED_EVENT");
+        AgentPlan plan = new AgentPlan();
+        plan.setEventResolveRequest(resolveRequest);
+        plan.getMissingFields().add("title");
+
+        when(conversationMemoryService.findLastMentionedEventId(1L, "session_001")).thenReturn(99L);
+
+        ReflectionTestUtils.invokeMethod(service, "enrichPlanConversationReference", request, plan);
+
+        assertEquals(Long.valueOf(99L), resolveRequest.getEventId());
+        assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
     void confirmShouldCreateMeetingBeforeCalendarAndSendSmsAfterCalendar() {
         AgentConfirmRequest request = new AgentConfirmRequest();
         request.setUserId(1L);
@@ -294,6 +313,8 @@ class AgentApplicationServiceTest {
         ToolActionStep smsStep = ToolActionStep.of(30, "sms.send", "sms", Collections.emptyMap());
         Map<String, Object> meetingData = new LinkedHashMap<>();
         meetingData.put("meeting_url", "https://meeting.voicecal.local/001");
+        meetingData.put("meeting_code", "123456789");
+        meetingData.put("provider", "TENCENT_MEETING");
         GenericToolAgent.ToolExecutionSummary meetingSummary = new GenericToolAgent.ToolExecutionSummary();
         meetingSummary.setContext(Collections.singletonMap("meeting", meetingData));
 
@@ -317,6 +338,8 @@ class AgentApplicationServiceTest {
 
         assertTrue(response.getSuccess());
         assertEquals("https://meeting.voicecal.local/001", createEventRequest.getMeetingUrl());
+        assertEquals("123456789", createEventRequest.getMeetingCode());
+        assertEquals("TENCENT_MEETING", createEventRequest.getMeetingProvider());
         InOrder order = inOrder(genericToolAgent, calendarAgent);
         order.verify(genericToolAgent).execute("task_001", Collections.singletonList(meetingStep));
         order.verify(calendarAgent).executeCreate(createEventRequest);

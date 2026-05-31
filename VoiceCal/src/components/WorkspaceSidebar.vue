@@ -4,7 +4,19 @@
       <el-tab-pane label="提醒" name="reminders">
         <div class="tab-toolbar">
           <strong>提醒任务</strong>
-          <el-button :icon="Bell" circle plain size="small" title="开启系统通知" @click="$emit('request-notification')" />
+          <div class="tab-actions">
+            <el-button :icon="Bell" circle plain size="small" title="开启系统通知" @click="$emit('request-notification')" />
+            <el-button
+              :icon="Delete"
+              circle
+              plain
+              size="small"
+              type="danger"
+              title="清空全部提醒任务"
+              :disabled="!reminders.length"
+              @click="$emit('clear-reminders')"
+            />
+          </div>
         </div>
         <p class="permission-text">{{ notificationButtonText }}</p>
         <el-empty v-if="!reminders.length" description="暂无提醒" :image-size="64" />
@@ -14,9 +26,12 @@
               <strong>{{ resolveReminderTitle(reminder) }}</strong>
               <span>{{ reminder.runAt }}</span>
             </div>
-            <el-tag :type="resolveReminderType(reminder.status)" effect="plain" size="small">
-              {{ resolveReminderStatus(reminder.status) }}
-            </el-tag>
+            <div class="compact-row-actions">
+              <el-tag :type="resolveReminderType(reminder.status)" effect="plain" size="small">
+                {{ resolveReminderStatus(reminder.status) }}
+              </el-tag>
+              <el-button :icon="Delete" circle text type="danger" title="删除该提醒任务" @click="$emit('delete-reminder', reminder)" />
+            </div>
           </div>
         </div>
       </el-tab-pane>
@@ -125,6 +140,8 @@ defineProps<{
 
 defineEmits<{
   (event: 'request-notification'): void;
+  (event: 'delete-reminder', reminder: ReminderTask): void;
+  (event: 'clear-reminders'): void;
 }>();
 
 const activeTab = ref('reminders');
@@ -232,10 +249,12 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 <style scoped>
 .workspace-sidebar {
   min-width: 0;
-  padding: 12px 14px;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  background: #fff;
+  padding: 14px 16px;
+  border: 1px solid rgb(160 207 255 / 18%);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgb(18 48 84 / 62%), rgb(9 25 49 / 52%));
+  box-shadow: 0 18px 54px rgb(0 6 22 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter: blur(26px);
 }
 
 .workspace-tabs :deep(.el-tabs__header) {
@@ -244,11 +263,14 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 
 .workspace-tabs :deep(.el-tabs__nav-wrap::after) {
   height: 1px;
+  background: rgb(159 205 255 / 14%);
 }
 
 .tab-toolbar,
+.tab-actions,
 .skill-title,
 .skill-meta,
+.compact-row-actions,
 .contact-row {
   display: flex;
   justify-content: space-between;
@@ -258,7 +280,7 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 
 .permission-text,
 .skill-summary {
-  color: #667085;
+  color: rgb(204 225 249 / 66%);
   font-size: 12px;
 }
 
@@ -283,8 +305,9 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 .skill-row,
 .contact-row {
   padding: 10px;
-  border: 1px solid #e7ebf0;
-  border-radius: 6px;
+  border: 1px solid rgb(162 207 255 / 14%);
+  border-radius: 12px;
+  background: rgb(7 24 48 / 38%);
 }
 
 .compact-row {
@@ -302,19 +325,19 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 
 .compact-row span,
 .contact-main span {
-  color: #667085;
+  color: rgb(204 225 249 / 66%);
   font-size: 12px;
 }
 
 .skill-row code {
   overflow: hidden;
-  color: #245b8a;
+  color: #8dcfff;
   font-size: 12px;
   text-overflow: ellipsis;
 }
 
 .skill-meta {
-  color: #667085;
+  color: rgb(204 225 249 / 66%);
   font-size: 12px;
 }
 
@@ -322,7 +345,7 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
   min-width: 0;
   border: 0;
   background: transparent;
-  color: #1f2937;
+  color: #e9f5ff;
   text-align: left;
   cursor: pointer;
 }
@@ -333,7 +356,7 @@ function resolveReminderType(status: string): 'success' | 'warning' | 'danger' |
 
 .unit {
   margin-left: 8px;
-  color: #667085;
+  color: rgb(204 225 249 / 66%);
   font-size: 13px;
 }
 </style>

@@ -31,7 +31,7 @@ class SkillRegistryTest {
 
         List<SkillDefinition> skills = registry.reload();
 
-        assertEquals(10, skills.size());
+        assertEquals(12, skills.size());
         assertEquals("meeting.create", registry.get("meeting.create").getSkillId());
         assertEquals("mock", registry.get("sms.send").getExecutor().getType());
         assertNotNull(registry.get("sms.send").getInputSchema().get("required"));

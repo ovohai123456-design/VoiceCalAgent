@@ -31,9 +31,11 @@ defineEmits<{ (event: 'select', index: number): void; (event: 'cancel'): void }>
 <style scoped>
 .conflict-panel {
   padding: 16px;
-  border: 1px solid #f1c56b;
-  border-radius: 8px;
-  background: #fffaf0;
+  border: 1px solid rgb(241 197 107 / 46%);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgb(92 65 34 / 52%), rgb(21 34 55 / 58%));
+  box-shadow: 0 14px 42px rgb(0 6 22 / 24%);
+  backdrop-filter: blur(22px);
 }
 
 .heading {
@@ -54,7 +56,7 @@ h2 {
 
 p {
   margin-top: 4px;
-  color: #76623f;
+  color: rgb(255 225 169 / 78%);
   font-size: 13px;
 }
 
