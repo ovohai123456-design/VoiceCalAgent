@@ -3,11 +3,11 @@ spring:
     name: voicecal-agent
 
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   cloud:
     nacos:
-      server-addr: 62.234.45.155:8848
+      server-addr: ${NACOS_SERVER_ADDR:62.234.45.155:8848}
       config:
         file-extension: yaml
         shared-configs:

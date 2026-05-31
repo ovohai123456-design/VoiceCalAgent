@@ -1,0 +1,39 @@
+services:
+  voicecal-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicecal-agent:latest
+    container_name: voicecal-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SERVER_PORT: 8080
+      TZ: Asia/Shanghai
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  voicecal-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: voicecal-web:latest
+    container_name: voicecal-web
+    restart: unless-stopped
+    depends_on:
+      - voicecal-agent
+    ports:
+      - "${WEB_PORT:-80}:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
