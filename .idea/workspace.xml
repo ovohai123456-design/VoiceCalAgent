@@ -5,10 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/resources/bootstrap.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CommandWorkflowService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CommandWorkflowService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/ReminderJobMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mapper/ReminderJobMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/ReminderJobService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/service/ReminderJobService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/schema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/schema.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/CommandWorkflowServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/CommandWorkflowServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/ReminderJobServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/ReminderJobServiceTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -16,7 +24,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="190" />
+    <option name="cachedIndexableFilesCount" value="202" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -145,7 +153,8 @@
       <workItem from="1780062885930" duration="185000" />
       <workItem from="1780063084503" duration="7830000" />
       <workItem from="1780106596657" duration="32433000" />
-      <workItem from="1780192564148" duration="13686000" />
+      <workItem from="1780192564148" duration="14070000" />
+      <workItem from="1780211382709" duration="1252000" />
     </task>
     <task id="LOCAL-00001" summary="实体类，VO，DTO">
       <option name="closed" value="true" />

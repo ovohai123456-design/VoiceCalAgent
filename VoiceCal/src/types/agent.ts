@@ -72,6 +72,8 @@ export interface AgentResponse {
 }
 
 export interface WorkflowStep {
+  id?: number;
+  taskId?: string;
   stepOrder: number;
   skillId: string;
   stepName?: string;

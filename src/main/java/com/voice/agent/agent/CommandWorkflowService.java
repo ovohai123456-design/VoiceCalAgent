@@ -9,6 +9,7 @@ import com.voice.agent.model.dto.AgentExecuteRequest;
 import com.voice.agent.model.entity.CommandTaskEntity;
 import com.voice.agent.model.entity.ExecutionLogEntity;
 import com.voice.agent.model.vo.ExecutionLogVO;
+import com.voice.agent.stream.AgentEventStreamService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -31,17 +32,20 @@ public class CommandWorkflowService {
     private final ExecutionLogMapper executionLogMapper;
     private final ExecutionLogWriter executionLogWriter;
     private final ObjectMapper objectMapper;
+    private final AgentEventStreamService eventStreamService;
 
     public CommandWorkflowService(
             CommandTaskMapper commandTaskMapper,
             ExecutionLogMapper executionLogMapper,
             ExecutionLogWriter executionLogWriter,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AgentEventStreamService eventStreamService
     ) {
         this.commandTaskMapper = commandTaskMapper;
         this.executionLogMapper = executionLogMapper;
         this.executionLogWriter = executionLogWriter;
         this.objectMapper = objectMapper;
+        this.eventStreamService = eventStreamService;
     }
 
     public CommandTaskEntity createTask(AgentExecuteRequest request) {
@@ -54,6 +58,7 @@ public class CommandWorkflowService {
         task.setStatus(AgentConstants.STATUS_RUNNING);
         task.setStartedAt(LocalDateTime.now());
         commandTaskMapper.insert(task);
+        eventStreamService.registerTask(task);
         return task;
     }
 
@@ -67,6 +72,7 @@ public class CommandWorkflowService {
         step.setRequestJson(toJson(request));
         step.setStatus(AgentConstants.STATUS_RUNNING);
         step.setStartedAt(LocalDateTime.now());
+        eventStreamService.publishWorkflowStep(taskId, toStepVO(step));
         return step;
     }
 
@@ -75,6 +81,7 @@ public class CommandWorkflowService {
         step.setResponseJson(toJson(response));
         step.setFinishedAt(LocalDateTime.now());
         step.setLatencyMs(resolveLatency(step));
+        eventStreamService.publishWorkflowStep(step.getTaskId(), toStepVO(step));
         persistAfterCommit(step);
     }
 
@@ -83,6 +90,7 @@ public class CommandWorkflowService {
         step.setErrorMessage(errorMessage);
         step.setFinishedAt(LocalDateTime.now());
         step.setLatencyMs(resolveLatency(step));
+        eventStreamService.publishWorkflowStep(step.getTaskId(), toStepVO(step));
         persistAfterCommit(step);
     }
 
@@ -94,6 +102,7 @@ public class CommandWorkflowService {
         task.setReplyText(replyText);
         task.setSpeakText(speakText);
         commandTaskMapper.updateById(task);
+        eventStreamService.publishTaskStatus(taskId, AgentConstants.STATUS_WAITING_CONFIRM);
     }
 
     public void markNeedClarification(String taskId, String intent, String replyText) {
@@ -104,6 +113,7 @@ public class CommandWorkflowService {
         task.setReplyText(replyText);
         task.setSpeakText(replyText);
         commandTaskMapper.updateById(task);
+        eventStreamService.publishTaskStatus(taskId, AgentConstants.STATUS_NEED_CLARIFICATION);
     }
 
     public void finishSuccess(String taskId, String intent, String replyText, String speakText) {
@@ -115,6 +125,7 @@ public class CommandWorkflowService {
         task.setSpeakText(speakText);
         task.setFinishedAt(LocalDateTime.now());
         commandTaskMapper.updateById(task);
+        eventStreamService.publishTaskStatus(taskId, AgentConstants.STATUS_SUCCESS);
     }
 
     public void finishFailed(String taskId, String intent, String errorMessage, String replyText) {
@@ -127,6 +138,7 @@ public class CommandWorkflowService {
         task.setSpeakText(replyText);
         task.setFinishedAt(LocalDateTime.now());
         commandTaskMapper.updateById(task);
+        eventStreamService.publishTaskStatus(taskId, AgentConstants.STATUS_FAILED);
     }
 
     public void cancelTask(String taskId, String replyText) {
@@ -137,6 +149,7 @@ public class CommandWorkflowService {
         task.setSpeakText(replyText);
         task.setFinishedAt(LocalDateTime.now());
         commandTaskMapper.updateById(task);
+        eventStreamService.publishTaskStatus(taskId, AgentConstants.STATUS_CANCELED);
     }
 
     public CommandTaskEntity findTask(String taskId) {
@@ -163,6 +176,7 @@ public class CommandWorkflowService {
         task.setSpeakText("已通过后续输入补充信息。");
         task.setFinishedAt(LocalDateTime.now());
         commandTaskMapper.updateById(task);
+        eventStreamService.publishTaskStatus(taskId, AgentConstants.STATUS_CANCELED);
     }
 
     public List<ExecutionLogVO> listSteps(String taskId) {

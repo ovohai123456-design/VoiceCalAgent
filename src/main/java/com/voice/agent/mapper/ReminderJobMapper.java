@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
@@ -37,4 +38,9 @@ public interface ReminderJobMapper extends BaseMapper<ReminderJobEntity> {
             + "SELECT id FROM calendar_event WHERE recurrence_series_id = #{seriesId}"
             + ")")
     int deleteForSeries(@Param("seriesId") String seriesId);
+
+    @Select("SELECT DISTINCT reminder.user_id FROM reminder_job reminder "
+            + "INNER JOIN calendar_event event ON event.id = reminder.event_id "
+            + "WHERE event.recurrence_series_id = #{seriesId}")
+    List<Long> selectUserIdsForSeries(@Param("seriesId") String seriesId);
 }

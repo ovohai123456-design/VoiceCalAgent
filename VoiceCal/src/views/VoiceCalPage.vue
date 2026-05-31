@@ -31,7 +31,7 @@
           @cancel="handleCancel"
         />
 
-        <CalendarView ref="calendarViewRef" @calendar-change="pollReminders" />
+        <CalendarView ref="calendarViewRef" @calendar-change="refreshReminders" />
       </section>
 
       <aside class="side-column">
@@ -42,7 +42,7 @@
           @delete-reminder="handleDeleteReminder"
           @clear-reminders="handleClearReminders"
         />
-        <WorkflowTimeline ref="workflowTimelineRef" :task-id="taskId" />
+        <WorkflowTimeline :task-id="taskId" :live-steps="workflowSteps" />
       </aside>
     </main>
   </div>
@@ -53,6 +53,7 @@ import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
+import { subscribeAgentEvents, type TaskStatusEvent } from '@/api/eventStream';
 import { clearReminderTasks, deleteReminderTask, listReminderTasks, type ReminderTask } from '@/api/reminderApi';
 import CalendarView from '@/components/CalendarView.vue';
 import ConflictSuggestionPanel from '@/components/ConflictSuggestionPanel.vue';
@@ -61,7 +62,7 @@ import StatusHeader from '@/components/StatusHeader.vue';
 import VoiceCommandPanel from '@/components/VoiceCommandPanel.vue';
 import WorkflowTimeline from '@/components/WorkflowTimeline.vue';
 import WorkspaceSidebar from '@/components/WorkspaceSidebar.vue';
-import type { AgentResponse, ConversationMessage, InputType, PageStatus, SuggestedSlot } from '@/types/agent';
+import type { AgentResponse, ConversationMessage, InputType, PageStatus, SuggestedSlot, WorkflowStep } from '@/types/agent';
 import type { CalendarEventItem } from '@/types/calendar';
 import {
   getBrowserNotificationPermission,
@@ -85,7 +86,7 @@ const taskId = ref<string | null>(null);
 const lastInputType = ref<InputType>('TEXT');
 const speechRecognition = ref<SpeechRecognition | null>(null);
 const calendarViewRef = ref<InstanceType<typeof CalendarView> | null>(null);
-const workflowTimelineRef = ref<InstanceType<typeof WorkflowTimeline> | null>(null);
+const workflowSteps = ref<WorkflowStep[]>([]);
 const conflictSlots = ref<SuggestedSlot[]>([]);
 const selectingSlotIndex = ref<number | null>(null);
 const eventCandidates = ref<CalendarEventItem[]>([]);
@@ -95,9 +96,9 @@ const browserNotificationPermission = ref<BrowserNotificationPermission>(getBrow
 const notifiedReminderIds = new Set<number>();
 
 let timerId: number | null = null;
-let reminderTimerId: number | null = null;
 let reminderPollingInitialized = false;
 let messageSequence = 1;
+let closeEventStream: (() => void) | null = null;
 
 const statusLabel = computed(() => ({
   IDLE: '空闲',
@@ -120,13 +121,19 @@ const notificationButtonText = computed(() => {
 
 onMounted(() => {
   timerId = window.setInterval(() => { currentTime.value = formatCurrentTime(); }, 1000);
-  void pollReminders();
-  reminderTimerId = window.setInterval(() => { void pollReminders(); }, 15_000);
+  closeEventStream = subscribeAgentEvents(DEFAULT_USER_ID, sessionId, {
+    onTaskStatus: handleTaskStatus,
+    onWorkflowStep: handleWorkflowStep,
+    onReminderChanged: handleReminderChanged,
+    onRemindersRefresh: () => { void refreshReminders(); },
+    onError: () => console.warn('SSE connection interrupted; browser will reconnect automatically'),
+  });
+  void refreshReminders();
 });
 
 onBeforeUnmount(() => {
   if (timerId !== null) window.clearInterval(timerId);
-  if (reminderTimerId !== null) window.clearInterval(reminderTimerId);
+  closeEventStream?.();
   stopRecognition(speechRecognition.value);
 });
 
@@ -248,9 +255,8 @@ async function applyAgentResponse(response: AgentResponse): Promise<void> {
   if (status.value === 'DONE') {
     clearPendingSelection();
     await refreshCalendar();
-    await pollReminders();
+    await refreshReminders();
   }
-  await refreshTimeline();
   if (shouldContinueVoiceConversation(response)) {
     handleStartVoice();
   }
@@ -282,15 +288,34 @@ function extractEventCandidates(response: AgentResponse): CalendarEventItem[] {
   return response.needEventSelection ? data?.candidates ?? [] : [];
 }
 
+function handleTaskStatus(event: TaskStatusEvent): void {
+  if (!event.taskId || event.taskId === taskId.value) return;
+  taskId.value = event.taskId;
+  workflowSteps.value = [];
+}
+
+function handleWorkflowStep(step: WorkflowStep): void {
+  if (!step.taskId) return;
+  if (step.taskId !== taskId.value) {
+    taskId.value = step.taskId;
+    workflowSteps.value = [];
+  }
+  const key = `${step.stepOrder}-${step.skillId}`;
+  const index = workflowSteps.value.findIndex((item) => `${item.stepOrder}-${item.skillId}` === key);
+  if (index === -1) workflowSteps.value.push(step);
+  else workflowSteps.value.splice(index, 1, step);
+  workflowSteps.value.sort((left, right) => left.stepOrder - right.stepOrder);
+}
+
+function handleReminderChanged(): void {
+  void refreshReminders();
+}
+
 async function refreshCalendar(): Promise<void> {
   await calendarViewRef.value?.refresh();
 }
 
-async function refreshTimeline(): Promise<void> {
-  await workflowTimelineRef.value?.refresh();
-}
-
-async function pollReminders(): Promise<void> {
+async function refreshReminders(): Promise<void> {
   try {
     const tasks = await listReminderTasks(DEFAULT_USER_ID);
     reminders.value = tasks;
@@ -309,7 +334,7 @@ async function pollReminders(): Promise<void> {
       await speak(`日程提醒：${title}`);
     }
   } catch (error) {
-    console.error('Reminder polling failed', error);
+    console.error('Reminder refresh failed', error);
   }
 }
 
@@ -323,7 +348,7 @@ async function handleDeleteReminder(reminder: ReminderTask): Promise<void> {
   try {
     await ElMessageBox.confirm('确认删除该提醒任务吗？', '删除提醒任务', { type: 'warning' });
     await deleteReminderTask(reminder.id, DEFAULT_USER_ID);
-    await pollReminders();
+    await refreshReminders();
     ElMessage.success('提醒任务已删除');
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') ElMessage.error('提醒任务删除失败');
@@ -335,7 +360,7 @@ async function handleClearReminders(): Promise<void> {
     await ElMessageBox.confirm('确认清空全部提醒任务吗？该操作不可恢复。', '清空提醒任务', { type: 'warning' });
     await clearReminderTasks(DEFAULT_USER_ID);
     notifiedReminderIds.clear();
-    await pollReminders();
+    await refreshReminders();
     ElMessage.success('提醒任务已清空');
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') ElMessage.error('提醒任务清空失败');

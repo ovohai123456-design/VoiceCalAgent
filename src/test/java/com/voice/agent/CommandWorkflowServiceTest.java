@@ -6,6 +6,7 @@ import com.voice.agent.agent.ExecutionLogWriter;
 import com.voice.agent.mapper.CommandTaskMapper;
 import com.voice.agent.mapper.ExecutionLogMapper;
 import com.voice.agent.model.entity.ExecutionLogEntity;
+import com.voice.agent.stream.AgentEventStreamService;
 import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.mock;
@@ -22,7 +23,8 @@ class CommandWorkflowServiceTest {
                 commandTaskMapper,
                 executionLogMapper,
                 executionLogWriter,
-                new ObjectMapper()
+                new ObjectMapper(),
+                mock(AgentEventStreamService.class)
         );
 
         ExecutionLogEntity log = service.addLog("task_001", 1, "router.route", "route", "agent", "request");

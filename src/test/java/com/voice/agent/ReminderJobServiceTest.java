@@ -5,6 +5,7 @@ import com.voice.agent.model.entity.CalendarEventEntity;
 import com.voice.agent.model.entity.ReminderJobEntity;
 import com.voice.agent.service.ReminderJobService;
 import com.voice.agent.mock.MockEmailProvider;
+import com.voice.agent.stream.AgentEventStreamService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,12 @@ class ReminderJobServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ReminderJobService(reminderJobMapper, mock(MockEmailProvider.class), new ObjectMapper());
+        service = new ReminderJobService(
+                reminderJobMapper,
+                mock(MockEmailProvider.class),
+                new ObjectMapper(),
+                mock(AgentEventStreamService.class)
+        );
         ReflectionTestUtils.setField(service, "maxRetryCount", 3);
     }
 

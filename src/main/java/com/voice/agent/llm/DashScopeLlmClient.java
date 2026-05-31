@@ -28,6 +28,8 @@ public class DashScopeLlmClient implements LlmClient {
     @Value("${llm.dashscope.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
     private String baseUrl;
 
+    private volatile OpenAIClient client;
+
     @Override
     public String chat(String systemPrompt, String userPrompt) {
         if (!StringUtils.hasText(apiKey) || apiKey.startsWith("${")) {
@@ -39,11 +41,6 @@ public class DashScopeLlmClient implements LlmClient {
         String normalizedBaseUrl = normalizeBaseUrl(baseUrl);
         log.info("LLM request start provider=dashscope model={} baseUrl={}", model, normalizedBaseUrl);
         try {
-            OpenAIClient client = OpenAIOkHttpClient.builder()
-                    .apiKey(apiKey)
-                    .baseUrl(normalizedBaseUrl)
-                    .build();
-
             ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
                     .model(model)
                     .addSystemMessage(systemPrompt)
@@ -52,7 +49,7 @@ public class DashScopeLlmClient implements LlmClient {
                     .maxTokens(1200)
                     .build();
 
-            ChatCompletion completion = client.chat().completions().create(params);
+            ChatCompletion completion = client().chat().completions().create(params);
             if (completion.choices().isEmpty()) {
                 throw new IllegalStateException("LLM 没有返回候选结果");
             }
@@ -73,6 +70,22 @@ public class DashScopeLlmClient implements LlmClient {
                     e.toString()
             );
             throw e;
+        }
+    }
+
+    private OpenAIClient client() {
+        OpenAIClient current = client;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (client == null) {
+                client = OpenAIOkHttpClient.builder()
+                        .apiKey(apiKey)
+                        .baseUrl(normalizeBaseUrl(baseUrl))
+                        .build();
+            }
+            return client;
         }
     }
 

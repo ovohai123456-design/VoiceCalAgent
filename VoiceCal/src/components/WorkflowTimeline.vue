@@ -30,26 +30,35 @@ import { ref, watch } from 'vue';
 import { getWorkflowSteps } from '@/api/agentApi';
 import type { WorkflowStep } from '@/types/agent';
 
-const props = defineProps<{ taskId: string | null }>();
+const props = defineProps<{ taskId: string | null; liveSteps?: WorkflowStep[] }>();
 const steps = ref<WorkflowStep[]>([]);
 const loading = ref(false);
 
 watch(() => props.taskId, (taskId) => {
+  steps.value = [];
   if (taskId) void loadSteps(taskId);
-  else steps.value = [];
 }, { immediate: true });
 
-async function loadSteps(taskId: string, retries = 2): Promise<void> {
+watch(() => props.liveSteps, (liveSteps) => {
+  mergeSteps(liveSteps ?? []);
+}, { deep: true });
+
+async function loadSteps(taskId: string): Promise<void> {
   loading.value = true;
   try {
-    steps.value = await getWorkflowSteps(taskId);
-    if (retries > 0) window.setTimeout(() => { if (props.taskId === taskId) void loadSteps(taskId, retries - 1); }, 800);
+    mergeSteps(await getWorkflowSteps(taskId));
   } catch (error) {
     console.error(error);
     ElMessage.error('执行链路加载失败');
   } finally {
     loading.value = false;
   }
+}
+
+function mergeSteps(nextSteps: WorkflowStep[]): void {
+  const merged = new Map(steps.value.map((step) => [`${step.stepOrder}-${step.skillId}`, step]));
+  for (const step of nextSteps) merged.set(`${step.stepOrder}-${step.skillId}`, step);
+  steps.value = Array.from(merged.values()).sort((left, right) => left.stepOrder - right.stepOrder);
 }
 
 async function refresh(): Promise<void> {

@@ -6,17 +6,22 @@ import com.voice.agent.model.entity.CalendarEventEntity;
 import com.voice.agent.model.entity.ReminderJobEntity;
 import com.voice.agent.model.vo.ReminderJobVO;
 import com.voice.agent.mock.MockEmailProvider;
+import com.voice.agent.stream.AgentEventStreamService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,14 +36,21 @@ public class ReminderJobService {
     private final ReminderJobMapper reminderJobMapper;
     private final MockEmailProvider mockEmailProvider;
     private final ObjectMapper objectMapper;
+    private final AgentEventStreamService eventStreamService;
 
     @Value("${voicecal.scheduler.max-retry-count:3}")
     private Integer maxRetryCount;
 
-    public ReminderJobService(ReminderJobMapper reminderJobMapper, MockEmailProvider mockEmailProvider, ObjectMapper objectMapper) {
+    public ReminderJobService(
+            ReminderJobMapper reminderJobMapper,
+            MockEmailProvider mockEmailProvider,
+            ObjectMapper objectMapper,
+            AgentEventStreamService eventStreamService
+    ) {
         this.reminderJobMapper = reminderJobMapper;
         this.mockEmailProvider = mockEmailProvider;
         this.objectMapper = objectMapper;
+        this.eventStreamService = eventStreamService;
     }
 
     @Transactional
@@ -54,6 +66,7 @@ public class ReminderJobService {
             return;
         }
         reminderJobMapper.insert(job);
+        publishReminderChangedAfterCommit(job);
     }
 
     @Transactional
@@ -68,6 +81,13 @@ public class ReminderJobService {
         }
         if (!jobs.isEmpty()) {
             reminderJobMapper.insertBatch(jobs);
+            Set<Long> userIds = new HashSet<>();
+            for (ReminderJobEntity job : jobs) {
+                userIds.add(job.getUserId());
+            }
+            for (Long userId : userIds) {
+                publishRemindersRefreshAfterCommit(userId);
+            }
         }
     }
 
@@ -118,10 +138,21 @@ public class ReminderJobService {
         if (eventId == null) {
             return 0;
         }
-        return reminderJobMapper.delete(
+        List<ReminderJobEntity> jobs = reminderJobMapper.selectList(
                 Wrappers.lambdaQuery(ReminderJobEntity.class)
                         .eq(ReminderJobEntity::getEventId, eventId)
         );
+        int deleted = reminderJobMapper.delete(
+                Wrappers.lambdaQuery(ReminderJobEntity.class)
+                        .eq(ReminderJobEntity::getEventId, eventId)
+        );
+        if (deleted > 0) {
+            jobs.stream()
+                    .map(ReminderJobEntity::getUserId)
+                    .distinct()
+                    .forEach(this::publishRemindersRefreshAfterCommit);
+        }
+        return deleted;
     }
 
     @Transactional
@@ -129,7 +160,13 @@ public class ReminderJobService {
         if (seriesId == null || seriesId.trim().isEmpty()) {
             return 0;
         }
-        return reminderJobMapper.deleteForSeries(seriesId.trim());
+        String normalizedSeriesId = seriesId.trim();
+        List<Long> userIds = reminderJobMapper.selectUserIdsForSeries(normalizedSeriesId);
+        int deleted = reminderJobMapper.deleteForSeries(normalizedSeriesId);
+        if (deleted > 0) {
+            userIds.forEach(this::publishRemindersRefreshAfterCommit);
+        }
+        return deleted;
     }
 
     @Transactional
@@ -140,11 +177,15 @@ public class ReminderJobService {
         if (userId == null) {
             throw new IllegalArgumentException("userId 不能为空");
         }
-        return reminderJobMapper.delete(
+        int deleted = reminderJobMapper.delete(
                 Wrappers.lambdaQuery(ReminderJobEntity.class)
                         .eq(ReminderJobEntity::getId, reminderId)
                         .eq(ReminderJobEntity::getUserId, userId)
         );
+        if (deleted > 0) {
+            publishRemindersRefreshAfterCommit(userId);
+        }
+        return deleted;
     }
 
     @Transactional
@@ -152,10 +193,14 @@ public class ReminderJobService {
         if (userId == null) {
             throw new IllegalArgumentException("userId 不能为空");
         }
-        return reminderJobMapper.delete(
+        int deleted = reminderJobMapper.delete(
                 Wrappers.lambdaQuery(ReminderJobEntity.class)
                         .eq(ReminderJobEntity::getUserId, userId)
         );
+        if (deleted > 0) {
+            publishRemindersRefreshAfterCommit(userId);
+        }
+        return deleted;
     }
 
     public List<ReminderJobVO> listByUser(Long userId) {
@@ -193,6 +238,7 @@ public class ReminderJobService {
         job.setRetryCount(0);
         job.setMaxRetryCount(maxRetryCount);
         reminderJobMapper.insert(job);
+        publishReminderChangedAfterCommit(job);
         return job;
     }
 
@@ -204,6 +250,7 @@ public class ReminderJobService {
             job.setStatus(STATUS_EXECUTED);
             job.setExecutedAt(LocalDateTime.now());
             reminderJobMapper.updateById(job);
+            publishReminderChangedAfterCommit(job);
             log.info("Reminder executed jobId={} eventId={} type={}", job.getId(), job.getEventId(), job.getJobType());
         } catch (RuntimeException e) {
             int retryCount = job.getRetryCount() == null ? 1 : job.getRetryCount() + 1;
@@ -211,6 +258,7 @@ public class ReminderJobService {
             job.setLastError(e.getMessage());
             job.setStatus(retryCount >= job.getMaxRetryCount() ? "FAILED" : STATUS_PENDING);
             reminderJobMapper.updateById(job);
+            publishReminderChangedAfterCommit(job);
             log.warn("Reminder failed jobId={} type={} retry={}", job.getId(), job.getJobType(), retryCount);
         }
     }
@@ -251,6 +299,28 @@ public class ReminderJobService {
         vo.setExecutedAt(entity.getExecutedAt());
         vo.setCreatedAt(entity.getCreatedAt());
         return vo;
+    }
+
+    private void publishReminderChangedAfterCommit(ReminderJobEntity job) {
+        ReminderJobVO reminder = toVO(job);
+        runAfterCommit(() -> eventStreamService.publishReminderChanged(job.getUserId(), reminder));
+    }
+
+    private void publishRemindersRefreshAfterCommit(Long userId) {
+        runAfterCommit(() -> eventStreamService.publishRemindersRefresh(userId));
+    }
+
+    private void runAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     private String escapeJson(String value) {

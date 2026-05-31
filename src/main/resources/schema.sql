@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS command_task (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (task_id),
-    KEY idx_command_task_user_session (user_id, session_id, created_at),
+    KEY idx_command_task_user_session_status_created (user_id, session_id, status, created_at),
     KEY idx_command_task_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

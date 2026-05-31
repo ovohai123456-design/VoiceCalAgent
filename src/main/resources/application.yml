@@ -62,6 +62,9 @@ voicecal:
     scan-fixed-rate-ms: 60000
     max-retry-count: 3
 
+  sse:
+    heartbeat-ms: 15000
+
   mock:
     meeting-enabled: true
     sms-enabled: true
