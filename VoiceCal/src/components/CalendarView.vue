@@ -81,7 +81,6 @@ import { ref } from 'vue';
 
 import { deleteCalendarEvent, getCalendarEvents, mapCalendarEventToFullCalendar, updateCalendarEvent } from '@/api/calendarApi';
 import type { CalendarEventItem } from '@/types/calendar';
-import { DEFAULT_USER_ID } from '@/utils/session';
 import { formatCurrentTime } from '@/utils/time';
 
 const emit = defineEmits<{ (event: 'calendar-change'): void }>();
@@ -106,7 +105,6 @@ const calendarOptions: CalendarOptions = {
     loading.value = true;
     try {
       const events = await getCalendarEvents({
-        userId: DEFAULT_USER_ID,
         startTime: formatCurrentTime(info.start),
         endTime: formatCurrentTime(info.end),
       });
@@ -147,7 +145,7 @@ async function saveEdit(): Promise<void> {
   if (!eventId) return;
   saving.value = true;
   try {
-    await updateCalendarEvent(eventId, { userId: DEFAULT_USER_ID, ...editForm.value });
+    await updateCalendarEvent(eventId, { ...editForm.value });
     editVisible.value = false;
     await refresh();
     emit('calendar-change');
@@ -177,7 +175,7 @@ async function removeSelectedEvent(): Promise<void> {
       }
     }
     await ElMessageBox.confirm(`确认删除“${eventTitle}”吗？`, '删除日程', { type: 'warning' });
-    await deleteCalendarEvent(eventId, DEFAULT_USER_ID, scope);
+    await deleteCalendarEvent(eventId, scope);
     detailVisible.value = false;
     await refresh();
     emit('calendar-change');

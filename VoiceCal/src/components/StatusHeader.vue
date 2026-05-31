@@ -10,6 +10,8 @@
     <div class="header-meta">
       <span class="clock">{{ currentTime }}</span>
       <el-tag :type="tagType" effect="plain">{{ statusLabel }}</el-tag>
+      <span class="username">{{ user.displayName || user.username }}</span>
+      <el-button plain size="small" @click="$emit('logout')">退出</el-button>
     </div>
   </header>
 </template>
@@ -18,8 +20,10 @@
 import { Calendar } from '@element-plus/icons-vue';
 import { computed } from 'vue';
 import type { PageStatus } from '@/types/agent';
+import type { AuthUser } from '@/utils/auth';
 
-const props = defineProps<{ currentTime: string; status: PageStatus; statusLabel: string }>();
+const props = defineProps<{ currentTime: string; status: PageStatus; statusLabel: string; user: AuthUser }>();
+defineEmits<{ (event: 'logout'): void }>();
 const tagType = computed(() => ({
   IDLE: 'info',
   LISTENING: 'primary',
@@ -73,7 +77,8 @@ h1 {
 }
 
 .brand span,
-.clock {
+.clock,
+.username {
   color: rgb(205 227 250 / 70%);
   font-size: 13px;
 }

@@ -132,7 +132,6 @@ import {
 } from '@/api/directoryApi';
 import type { ReminderTask } from '@/api/reminderApi';
 import { listSkills, reloadSkills, type SkillDefinition } from '@/api/skillApi';
-import { DEFAULT_USER_ID } from '@/utils/session';
 
 const props = defineProps<{
   reminders: ReminderTask[];
@@ -152,8 +151,8 @@ const loadingSkills = ref(false);
 const savingContact = ref(false);
 const savingPreference = ref(false);
 const contactDialogVisible = ref(false);
-const contactForm = reactive<ContactItem>({ userId: Number(DEFAULT_USER_ID), name: '', phone: '', email: '' });
-const preference = reactive<UserPreference>({ userId: Number(DEFAULT_USER_ID) });
+const contactForm = reactive<ContactItem>({ name: '', phone: '', email: '' });
+const preference = reactive<UserPreference>({});
 const enabledSkillCount = computed(() => skills.value.filter((skill) => skill.enabled).length);
 const groupedReminders = computed(() => {
   const groups = new Map<string, ReminderTask[]>();
@@ -189,17 +188,16 @@ async function loadSkills(force = false): Promise<void> {
 }
 
 async function loadContacts(): Promise<void> {
-  contacts.value = await listContacts(DEFAULT_USER_ID);
+  contacts.value = await listContacts();
 }
 
 async function loadPreference(): Promise<void> {
-  Object.assign(preference, await getUserPreference(DEFAULT_USER_ID));
+  Object.assign(preference, await getUserPreference());
 }
 
 function openContactDialog(contact?: ContactItem): void {
   Object.assign(contactForm, {
     id: contact?.id,
-    userId: Number(DEFAULT_USER_ID),
     name: contact?.name ?? '',
     phone: contact?.phone ?? '',
     email: contact?.email ?? '',
@@ -226,7 +224,7 @@ async function submitContact(): Promise<void> {
 async function removeContact(contact: ContactItem): Promise<void> {
   if (!contact.id) return;
   await ElMessageBox.confirm(`确认删除联系人“${contact.name}”吗？`, '删除联系人', { type: 'warning' });
-  await deleteContact(contact.id, DEFAULT_USER_ID);
+  await deleteContact(contact.id);
   await loadContacts();
 }
 

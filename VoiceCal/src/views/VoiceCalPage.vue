@@ -1,6 +1,6 @@
 <template>
   <div class="voicecal-page">
-    <StatusHeader :current-time="currentTime" :status="status" :status-label="statusLabel" />
+    <StatusHeader :current-time="currentTime" :status="status" :status-label="statusLabel" :user="user" @logout="$emit('logout')" />
 
     <main class="workspace-grid">
       <section class="voice-zone">
@@ -80,15 +80,19 @@ import WorkflowTimeline from '@/components/WorkflowTimeline.vue';
 import WorkspaceSidebar from '@/components/WorkspaceSidebar.vue';
 import type { AgentResponse, ConversationMessage, InputType, PageStatus, SuggestedSlot, WorkflowStep } from '@/types/agent';
 import type { CalendarEventItem } from '@/types/calendar';
+import type { AuthUser } from '@/utils/auth';
 import {
   getBrowserNotificationPermission,
   requestBrowserNotificationPermission,
   showBrowserNotification,
   type BrowserNotificationPermission,
 } from '@/utils/browserNotification';
-import { DEFAULT_USER_ID, getCurrentTimezone, getSessionId } from '@/utils/session';
+import { getCurrentTimezone, getSessionId } from '@/utils/session';
 import { createSpeechRecognition, speak, startRecognition, stopRecognition } from '@/utils/speech';
 import { formatCurrentTime } from '@/utils/time';
+
+defineProps<{ user: AuthUser }>();
+defineEmits<{ (event: 'logout'): void }>();
 
 const commandText = ref('');
 const sessionId = getSessionId();
@@ -144,7 +148,7 @@ const notificationButtonText = computed(() => {
 
 onMounted(() => {
   timerId = window.setInterval(() => { currentTime.value = formatCurrentTime(); }, 1000);
-  closeEventStream = subscribeAgentEvents(DEFAULT_USER_ID, sessionId, {
+  closeEventStream = subscribeAgentEvents(sessionId, {
     onTaskStatus: handleTaskStatus,
     onWorkflowStep: handleWorkflowStep,
     onReminderChanged: handleReminderChanged,
@@ -245,7 +249,6 @@ async function sendConversationMessage(text: string, inputType: InputType): Prom
   status.value = 'WAITING_RESPONSE';
   try {
     await applyAgentResponse(await executeAgent({
-      userId: DEFAULT_USER_ID,
       sessionId,
       inputType,
       text: content,
@@ -263,7 +266,6 @@ async function handleCancel(): Promise<void> {
   status.value = 'EXECUTING';
   try {
     await applyAgentResponse(await cancelAgent({
-      userId: DEFAULT_USER_ID,
       sessionId,
       confirmToken: confirmToken.value,
     }));
@@ -279,7 +281,6 @@ async function handleConfirm(): Promise<void> {
   status.value = 'EXECUTING';
   try {
     await applyAgentResponse(await confirmAgent({
-      userId: DEFAULT_USER_ID,
       sessionId,
       confirmToken: confirmToken.value,
     }));
@@ -297,7 +298,6 @@ async function handleSelectSlot(slotIndex: number): Promise<void> {
   status.value = 'EXECUTING';
   try {
     await applyAgentResponse(await selectAgentSlot({
-      userId: DEFAULT_USER_ID,
       sessionId,
       confirmToken: confirmToken.value,
       slotIndex,
@@ -316,7 +316,6 @@ async function handleSelectEvent(candidateIndex: number): Promise<void> {
   status.value = 'WAITING_RESPONSE';
   try {
     await applyAgentResponse(await selectAgentEvent({
-      userId: DEFAULT_USER_ID,
       sessionId,
       confirmToken: confirmToken.value,
       candidateIndex,
@@ -433,7 +432,7 @@ async function refreshCalendar(): Promise<void> {
 
 async function refreshReminders(): Promise<void> {
   try {
-    const tasks = await listReminderTasks(DEFAULT_USER_ID);
+    const tasks = await listReminderTasks();
     reminders.value = tasks;
     const executed = tasks.filter((reminder) => reminder.jobType === 'IN_APP' && reminder.status === 'EXECUTED');
     if (!reminderPollingInitialized) {
@@ -464,7 +463,7 @@ async function handleDeleteReminder(reminder: ReminderTask): Promise<void> {
   try {
     await ElMessageBox.confirm('确认删除该提醒任务吗？', '删除提醒任务', { type: 'warning' });
     const reminderIds = reminder.relatedReminderIds?.length ? reminder.relatedReminderIds : [reminder.id];
-    await Promise.all(reminderIds.map((reminderId) => deleteReminderTask(reminderId, DEFAULT_USER_ID)));
+    await Promise.all(reminderIds.map((reminderId) => deleteReminderTask(reminderId)));
     await refreshReminders();
     ElMessage.success('提醒任务已删除');
   } catch (error) {
@@ -475,7 +474,7 @@ async function handleDeleteReminder(reminder: ReminderTask): Promise<void> {
 async function handleClearReminders(): Promise<void> {
   try {
     await ElMessageBox.confirm('确认清空全部提醒任务吗？该操作不可恢复。', '清空提醒任务', { type: 'warning' });
-    await clearReminderTasks(DEFAULT_USER_ID);
+    await clearReminderTasks();
     notifiedReminderIds.clear();
     await refreshReminders();
     ElMessage.success('提醒任务已清空');

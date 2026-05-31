@@ -45,6 +45,7 @@ import type { WorkflowStep } from '@/types/agent';
 const props = defineProps<{ taskId: string | null; liveSteps?: WorkflowStep[] }>();
 const steps = ref<WorkflowStep[]>([]);
 const loading = ref(false);
+const loadRetryDelays = [180, 420, 900];
 
 const shortTaskId = computed(() => {
   if (!props.taskId) return '';
@@ -89,13 +90,27 @@ watch(() => props.liveSteps, (liveSteps) => {
 async function loadSteps(taskId: string): Promise<void> {
   loading.value = true;
   try {
-    mergeSteps(await getWorkflowSteps(taskId));
+    for (let attempt = 0; attempt <= loadRetryDelays.length; attempt += 1) {
+      try {
+        mergeSteps(await getWorkflowSteps(taskId));
+        return;
+      } catch (error) {
+        if (props.taskId !== taskId) return;
+        if (attempt === loadRetryDelays.length) throw error;
+        // SSE can announce a task a moment before its database transaction commits.
+        await wait(loadRetryDelays[attempt]);
+      }
+    }
   } catch (error) {
     console.error(error);
     ElMessage.error('执行链路加载失败');
   } finally {
-    loading.value = false;
+    if (props.taskId === taskId) loading.value = false;
   }
+}
+
+function wait(delay: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, delay));
 }
 
 function mergeSteps(nextSteps: WorkflowStep[]): void {
