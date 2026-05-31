@@ -7,6 +7,7 @@
     <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/api/calendarApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/api/calendarApi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" afterDir="false" />
@@ -154,7 +155,7 @@
       <workItem from="1780063084503" duration="7830000" />
       <workItem from="1780106596657" duration="32433000" />
       <workItem from="1780192564148" duration="14070000" />
-      <workItem from="1780211382709" duration="12357000" />
+      <workItem from="1780211382709" duration="12738000" />
     </task>
     <task id="LOCAL-00001" summary="实体类，VO，DTO">
       <option name="closed" value="true" />

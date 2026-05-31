@@ -1,7 +1,7 @@
 <template>
   <section class="timeline-panel">
     <div class="panel-heading">
-      <div>
+      <div class="heading-title">
         <h2>Agent 执行链路 Dock</h2>
         <span>{{ taskId ? `任务 ${shortTaskId}` : '执行指令后展示路由、确认、执行、回写全过程' }}</span>
       </div>
@@ -160,17 +160,31 @@ defineExpose({ refresh });
   margin-bottom: 2px;
 }
 
+.heading-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
 h2 {
-  margin: 0 0 5px;
+  margin: 0;
   color: #f0f8ff;
   font-size: 19px;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .panel-heading span,
 .track-node span {
   color: rgb(205 227 250 / 66%);
   font-size: 12px;
+}
+
+.panel-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-dock {
