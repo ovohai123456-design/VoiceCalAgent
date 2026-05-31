@@ -1,5 +1,12 @@
 export type InputType = 'VOICE' | 'TEXT';
 
+export interface ConversationMessage {
+  id: number;
+  role: 'USER' | 'ASSISTANT';
+  text: string;
+  inputType?: InputType;
+}
+
 export type PageStatus =
   | 'IDLE'
   | 'LISTENING'

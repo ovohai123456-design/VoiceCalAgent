@@ -13,6 +13,7 @@ import com.voice.agent.model.entity.CommandActionEntity;
 import com.voice.agent.model.entity.CommandTaskEntity;
 import com.voice.agent.model.entity.ExecutionLogEntity;
 import com.voice.agent.model.entity.PendingConfirmationEntity;
+import com.voice.agent.model.entity.ConversationStateEntity;
 import com.voice.agent.model.vo.AgentResponse;
 import com.voice.agent.model.vo.CalendarEventVO;
 import com.voice.agent.tool.GenericToolAgent;
@@ -43,6 +44,7 @@ public class AgentApplicationService {
     private final DefaultValueResolver defaultValueResolver;
     private final ActionPlanBuilder actionPlanBuilder;
     private final GenericToolAgent genericToolAgent;
+    private final ConversationMemoryService conversationMemoryService;
 
     @Value("${voicecal.confirm.auto-execute-safe-writes:true}")
     private Boolean autoExecuteSafeWrites = false;
@@ -58,7 +60,8 @@ public class AgentApplicationService {
             CommandWorkflowService commandWorkflowService,
             DefaultValueResolver defaultValueResolver,
             ActionPlanBuilder actionPlanBuilder,
-            GenericToolAgent genericToolAgent
+            GenericToolAgent genericToolAgent,
+            ConversationMemoryService conversationMemoryService
     ) {
         this.routerAgent = routerAgent;
         this.calendarAgent = calendarAgent;
@@ -68,13 +71,31 @@ public class AgentApplicationService {
         this.defaultValueResolver = defaultValueResolver;
         this.actionPlanBuilder = actionPlanBuilder;
         this.genericToolAgent = genericToolAgent;
+        this.conversationMemoryService = conversationMemoryService;
     }
 
     @Transactional
     public AgentResponse execute(AgentExecuteRequest request) {
         normalizeExecuteRequest(request);
-        applyConversationContext(request);
+        String originalText = request.getText();
+
+        ConversationStateEntity activeState = conversationMemoryService.latestActiveState(
+                request.getUserId(),
+                request.getSessionId()
+        );
+
+        AgentResponse stateResponse = tryHandleConversationState(request, activeState);
+        if (stateResponse != null) {
+            return stateResponse;
+        }
+        activeState = abandonStateForNewCommand(request, activeState);
+
+        request.setHistory(conversationMemoryService.buildHistoryText(request.getUserId(), request.getSessionId(), 8));
+        request.setConversationState(conversationMemoryService.buildStateText(activeState));
+        applyConversationContext(request, activeState);
+
         CommandTaskEntity task = commandWorkflowService.createTask(request);
+        conversationMemoryService.saveUserMessage(task.getUserId(), task.getSessionId(), originalText, task.getTaskId());
         ExecutionLogEntity routeLog = null;
 
         try {
@@ -95,32 +116,47 @@ public class AgentApplicationService {
             if (!plan.getMissingFields().isEmpty()) {
                 String reply = buildClarifyText(plan);
                 commandWorkflowService.markNeedClarification(task.getTaskId(), plan.getIntent(), reply);
-                return clarifyResponse(task.getTaskId(), plan.getMissingFields(), reply);
+                conversationMemoryService.createState(
+                        task.getUserId(),
+                        task.getSessionId(),
+                        ConversationConstants.STATE_CLARIFY,
+                        task.getTaskId(),
+                        null,
+                        null,
+                        plan,
+                        clarificationTimeoutMinutes
+                );
+                return finalizeExecuteResponse(request, task, clarifyResponse(task.getTaskId(), plan.getMissingFields(), reply));
             }
 
+            AgentResponse response;
             if (AgentConstants.INTENT_CREATE_EVENT.equals(plan.getIntent())) {
-                return prepareCreateEvent(task, plan);
+                response = prepareCreateEvent(task, plan);
+                return finalizeExecuteResponse(request, task, response);
             }
             if (AgentConstants.INTENT_QUERY_EVENT.equals(plan.getIntent())) {
-                return executeQueryEvent(task, plan);
+                response = executeQueryEvent(task, plan);
+                return finalizeExecuteResponse(request, task, response);
             }
             if (AgentConstants.INTENT_UPDATE_EVENT.equals(plan.getIntent())) {
-                return prepareUpdateEvent(task, plan);
+                response = prepareUpdateEvent(task, plan);
+                return finalizeExecuteResponse(request, task, response);
             }
             if (AgentConstants.INTENT_DELETE_EVENT.equals(plan.getIntent())) {
-                return prepareDeleteEvent(task, plan);
+                response = prepareDeleteEvent(task, plan);
+                return finalizeExecuteResponse(request, task, response);
             }
 
             String reply = "我暂时不能处理这个任务，你可以换一种说法。";
             commandWorkflowService.finishFailed(task.getTaskId(), AgentConstants.INTENT_UNKNOWN, reply, reply);
-            return failedResponse(task.getTaskId(), reply);
+            return finalizeExecuteResponse(request, task, failedResponse(task.getTaskId(), reply));
         } catch (RuntimeException e) {
             String reply = "处理任务失败：" + e.getMessage();
             if (routeLog != null && AgentConstants.STATUS_RUNNING.equals(routeLog.getStatus())) {
                 commandWorkflowService.markLogFailed(routeLog, e.getMessage());
             }
             commandWorkflowService.finishFailed(task.getTaskId(), AgentConstants.INTENT_UNKNOWN, e.getMessage(), reply);
-            return failedResponse(task.getTaskId(), reply);
+            return finalizeExecuteResponse(request, task, failedResponse(task.getTaskId(), reply));
         }
     }
 
@@ -152,6 +188,7 @@ public class AgentApplicationService {
             commandActionService.markExecuted(action);
             commandWorkflowService.markLogSuccess(executeLog, execution.getData());
             commandWorkflowService.finishSuccess(action.getTaskId(), execution.getIntent(), execution.getReplyText(), execution.getReplyText());
+            conversationMemoryService.closeActiveStates(request.getUserId(), request.getSessionId());
             return successResponse(action.getTaskId(), execution);
         } catch (RuntimeException e) {
             if (executeLog != null) {
@@ -179,6 +216,7 @@ public class AgentApplicationService {
             confirmService.markCanceled(confirmation);
             commandActionService.markCanceled(action);
             commandWorkflowService.cancelTask(action.getTaskId(), "已取消该操作。");
+            conversationMemoryService.closeActiveStates(request.getUserId(), request.getSessionId());
             return baseResponse(true, action.getTaskId(), "已取消该操作。");
         } catch (RuntimeException e) {
             return failedResponse(null, "取消失败：" + e.getMessage());
@@ -219,6 +257,7 @@ public class AgentApplicationService {
             commandActionService.markExecuted(action);
             commandWorkflowService.markLogSuccess(executeLog, execution.getData());
             commandWorkflowService.finishSuccess(action.getTaskId(), execution.getIntent(), execution.getReplyText(), execution.getReplyText());
+            conversationMemoryService.closeActiveStates(request.getUserId(), request.getSessionId());
             return successResponse(action.getTaskId(), execution);
         } catch (RuntimeException e) {
             if (executeLog != null) {
@@ -255,14 +294,37 @@ public class AgentApplicationService {
                 confirmService.markConfirmed(confirmation);
                 commandActionService.markExecuted(action);
                 commandWorkflowService.finishSuccess(action.getTaskId(), execution.getIntent(), execution.getReplyText(), execution.getReplyText());
+                conversationMemoryService.closeActiveStates(request.getUserId(), request.getSessionId());
                 return successResponse(action.getTaskId(), execution);
             }
-            return eventSelectedResponse(action.getTaskId(), request.getConfirmToken(), prepared.getReplyText());
+            AgentResponse response = eventSelectedResponse(action.getTaskId(), request.getConfirmToken(), prepared.getReplyText());
+            conversationMemoryService.createState(
+                    request.getUserId(),
+                    request.getSessionId(),
+                    ConversationConstants.STATE_CONFIRM,
+                    action.getTaskId(),
+                    action.getActionId(),
+                    request.getConfirmToken(),
+                    prepared.getPayload(),
+                    clarificationTimeoutMinutes
+            );
+            return response;
         }
         if (AgentConstants.ACTION_DELETE_EVENT.equals(action.getActionType())) {
             CalendarAgent.PreparedDeleteAction prepared = calendarAgent.prepareDeleteAction(selected);
             commandActionService.updatePayload(action, prepared.getPayload());
-            return eventSelectedResponse(action.getTaskId(), request.getConfirmToken(), prepared.getReplyText());
+            AgentResponse response = eventSelectedResponse(action.getTaskId(), request.getConfirmToken(), prepared.getReplyText());
+            conversationMemoryService.createState(
+                    request.getUserId(),
+                    request.getSessionId(),
+                    ConversationConstants.STATE_CONFIRM,
+                    action.getTaskId(),
+                    action.getActionId(),
+                    request.getConfirmToken(),
+                    prepared.getPayload(),
+                    clarificationTimeoutMinutes
+            );
+            return response;
         }
         throw new IllegalStateException("当前操作不支持候选日程选择");
     }
@@ -295,41 +357,24 @@ public class AgentApplicationService {
                 prepared.getCreateEventRequest()
         );
         if (Boolean.TRUE.equals(prepared.getRequiresSlotSelection())) {
-            return createPendingResponse(task, action, prepared.getReplyText(), prepared);
+            return createPendingResponse(
+                    task,
+                    action,
+                    prepared.getReplyText(),
+                    prepared,
+                    ConversationConstants.STATE_SLOT_SELECTION
+            );
         }
         if (shouldAutoExecuteSafeWrites()) {
             return executePreparedAction(task, action, 3, "calendar.create", "CalendarAgent 自动创建日程");
         }
-        commandActionService.markWaitingConfirm(action);
-
-        PendingConfirmationEntity confirmation = confirmService.createPendingConfirmation(
-                task.getUserId(),
-                task.getSessionId(),
-                action.getActionId()
-        );
-
-        ExecutionLogEntity confirmationLog = commandWorkflowService.addLog(
-                task.getTaskId(),
-                3,
-                "pending_confirmation.create",
-                "创建待确认记录",
-                "agent",
-                confirmation
-        );
-        commandWorkflowService.markLogSuccess(confirmationLog, action.getActionId());
-
-        commandWorkflowService.markWaitingConfirm(
-                task.getTaskId(),
-                AgentConstants.INTENT_CREATE_EVENT,
+        return createPendingResponse(
+                task,
+                action,
                 prepared.getReplyText(),
-                prepared.getReplyText()
+                prepared,
+                ConversationConstants.STATE_CONFIRM
         );
-
-        AgentResponse response = baseResponse(true, task.getTaskId(), prepared.getReplyText());
-        response.setNeedConfirm(true);
-        response.setConfirmToken(confirmation.getConfirmToken());
-        response.setData(prepared);
-        return response;
     }
 
     private AgentResponse prepareUpdateEvent(CommandTaskEntity task, AgentPlan plan) {
@@ -398,10 +443,20 @@ public class AgentApplicationService {
     }
 
     private AgentResponse createPendingResponse(CommandTaskEntity task, CommandActionEntity action, String replyText) {
-        return createPendingResponse(task, action, replyText, null);
+        return createPendingResponse(task, action, replyText, null, ConversationConstants.STATE_CONFIRM);
     }
 
     private AgentResponse createPendingResponse(CommandTaskEntity task, CommandActionEntity action, String replyText, Object data) {
+        return createPendingResponse(task, action, replyText, data, resolvePendingStateType(data));
+    }
+
+    private AgentResponse createPendingResponse(
+            CommandTaskEntity task,
+            CommandActionEntity action,
+            String replyText,
+            Object data,
+            String stateType
+    ) {
         commandActionService.markWaitingConfirm(action);
         PendingConfirmationEntity confirmation = confirmService.createPendingConfirmation(
                 task.getUserId(),
@@ -423,6 +478,17 @@ public class AgentApplicationService {
         response.setNeedConfirm(true);
         response.setConfirmToken(confirmation.getConfirmToken());
         response.setData(data);
+
+        conversationMemoryService.createState(
+                task.getUserId(),
+                task.getSessionId(),
+                stateType,
+                task.getTaskId(),
+                action.getActionId(),
+                confirmation.getConfirmToken(),
+                data == null ? action : data,
+                clarificationTimeoutMinutes
+        );
         return response;
     }
 
@@ -438,7 +504,13 @@ public class AgentApplicationService {
         payload.setUpdateRequest(updateRequest);
         payload.setCandidates(candidates);
         CommandActionEntity action = commandActionService.createAction(task.getTaskId(), actionType, payload);
-        AgentResponse response = createPendingResponse(task, action, "找到多个匹配日程，请选择要操作的日程", payload);
+        AgentResponse response = createPendingResponse(
+                task,
+                action,
+                calendarAgent.buildEventSelectionReply(candidates),
+                payload,
+                ConversationConstants.STATE_EVENT_SELECTION
+        );
         response.setNeedEventSelection(true);
         return response;
     }
@@ -581,12 +653,230 @@ public class AgentApplicationService {
         return response;
     }
 
+
+    private AgentResponse finalizeExecuteResponse(AgentExecuteRequest request, CommandTaskEntity task, AgentResponse response) {
+        if (response == null) {
+            return null;
+        }
+        conversationMemoryService.saveAssistantMessage(
+                task.getUserId(),
+                task.getSessionId(),
+                response.getReplyText(),
+                task.getTaskId()
+        );
+        if (!Boolean.TRUE.equals(response.getNeedConfirm())
+                && !Boolean.TRUE.equals(response.getNeedClarify())
+                && !Boolean.TRUE.equals(response.getNeedEventSelection())) {
+            conversationMemoryService.closeActiveStates(request.getUserId(), request.getSessionId());
+        }
+        return response;
+    }
+
+    private String resolvePendingStateType(Object data) {
+        if (data instanceof CalendarAgent.PreparedCreateAction) {
+            CalendarAgent.PreparedCreateAction prepared = (CalendarAgent.PreparedCreateAction) data;
+            if (Boolean.TRUE.equals(prepared.getRequiresSlotSelection())) {
+                return ConversationConstants.STATE_SLOT_SELECTION;
+            }
+        }
+        return ConversationConstants.STATE_CONFIRM;
+    }
+
+    private AgentResponse tryHandleConversationState(AgentExecuteRequest request, ConversationStateEntity state) {
+        if (state == null || !StringUtils.hasText(request.getText())) {
+            return null;
+        }
+        String text = request.getText().trim();
+        String replyText;
+
+        if (isCancelText(text)) {
+            conversationMemoryService.saveUserMessage(request.getUserId(), request.getSessionId(), text, state.getTaskId());
+            if (ConversationConstants.STATE_CLARIFY.equals(state.getStateType())) {
+                commandWorkflowService.cancelTask(state.getTaskId(), "已取消当前补充流程。");
+                conversationMemoryService.closeState(state);
+                replyText = "已取消当前补充流程。";
+                conversationMemoryService.saveAssistantMessage(request.getUserId(), request.getSessionId(), replyText, state.getTaskId());
+                return baseResponse(true, state.getTaskId(), replyText);
+            }
+            if (StringUtils.hasText(state.getConfirmToken())) {
+                AgentCancelRequest cancelRequest = new AgentCancelRequest();
+                cancelRequest.setUserId(request.getUserId());
+                cancelRequest.setSessionId(request.getSessionId());
+                cancelRequest.setConfirmToken(state.getConfirmToken());
+                AgentResponse response = cancel(cancelRequest);
+                conversationMemoryService.closeState(state);
+                if (response != null && StringUtils.hasText(response.getReplyText())) {
+                    conversationMemoryService.saveAssistantMessage(request.getUserId(), request.getSessionId(), response.getReplyText(), state.getTaskId());
+                }
+                return response;
+            }
+        }
+
+        if (ConversationConstants.STATE_CONFIRM.equals(state.getStateType())) {
+            if (isConfirmText(text)) {
+                AgentConfirmRequest confirmRequest = new AgentConfirmRequest();
+                confirmRequest.setUserId(request.getUserId());
+                confirmRequest.setSessionId(request.getSessionId());
+                confirmRequest.setConfirmToken(state.getConfirmToken());
+                conversationMemoryService.saveUserMessage(request.getUserId(), request.getSessionId(), text, state.getTaskId());
+                AgentResponse response = confirm(confirmRequest);
+                conversationMemoryService.closeState(state);
+                if (response != null && StringUtils.hasText(response.getReplyText())) {
+                    conversationMemoryService.saveAssistantMessage(request.getUserId(), request.getSessionId(), response.getReplyText(), state.getTaskId());
+                }
+                return response;
+            }
+        }
+
+        Integer selectedIndex = parseSelectionIndex(text);
+        if (selectedIndex == null) {
+            return null;
+        }
+
+        if (ConversationConstants.STATE_EVENT_SELECTION.equals(state.getStateType())) {
+            AgentSelectEventRequest selectRequest = new AgentSelectEventRequest();
+            selectRequest.setUserId(request.getUserId());
+            selectRequest.setSessionId(request.getSessionId());
+            selectRequest.setConfirmToken(state.getConfirmToken());
+            selectRequest.setCandidateIndex(selectedIndex);
+            conversationMemoryService.saveUserMessage(request.getUserId(), request.getSessionId(), text, state.getTaskId());
+            AgentResponse response = selectEvent(selectRequest);
+            if (!Boolean.TRUE.equals(response.getNeedConfirm())) {
+                conversationMemoryService.closeState(state);
+            }
+            if (response != null && StringUtils.hasText(response.getReplyText())) {
+                conversationMemoryService.saveAssistantMessage(request.getUserId(), request.getSessionId(), response.getReplyText(), state.getTaskId());
+            }
+            return response;
+        }
+
+        if (ConversationConstants.STATE_SLOT_SELECTION.equals(state.getStateType())) {
+            AgentSelectSlotRequest selectRequest = new AgentSelectSlotRequest();
+            selectRequest.setUserId(request.getUserId());
+            selectRequest.setSessionId(request.getSessionId());
+            selectRequest.setConfirmToken(state.getConfirmToken());
+            selectRequest.setSlotIndex(selectedIndex);
+            conversationMemoryService.saveUserMessage(request.getUserId(), request.getSessionId(), text, state.getTaskId());
+            AgentResponse response = selectSlot(selectRequest);
+            conversationMemoryService.closeState(state);
+            if (response != null && StringUtils.hasText(response.getReplyText())) {
+                conversationMemoryService.saveAssistantMessage(request.getUserId(), request.getSessionId(), response.getReplyText(), state.getTaskId());
+            }
+            return response;
+        }
+
+        return null;
+    }
+
+    private boolean isConfirmText(String text) {
+        return "确认".equals(text)
+                || "可以".equals(text)
+                || "对".equals(text)
+                || "是的".equals(text)
+                || "执行".equals(text)
+                || "确定".equals(text)
+                || "没问题".equals(text)
+                || "好".equals(text);
+    }
+
+    private boolean isCancelText(String text) {
+        return "取消".equals(text)
+                || "不用了".equals(text)
+                || "算了".equals(text)
+                || "不要".equals(text)
+                || "先不做".equals(text)
+                || "撤销".equals(text);
+    }
+
+    private Integer parseSelectionIndex(String text) {
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        String value = text.trim()
+                .replace(" ", "")
+                .replace("我想要", "")
+                .replace("我要", "")
+                .replace("我选", "")
+                .replace("选择", "")
+                .replace("选", "")
+                .replace("第", "")
+                .replace("个", "")
+                .replace("号", "");
+        if (value.matches("[0-9]+")) {
+            try {
+                int number = Integer.parseInt(value);
+                return number > 0 ? number - 1 : null;
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        Integer number = parseChineseNumber(value);
+        return number == null || number <= 0 ? null : number - 1;
+    }
+
+    private Integer parseChineseNumber(String value) {
+        if (!StringUtils.hasText(value) || !value.matches("[一二两三四五六七八九十]+")) {
+            return null;
+        }
+        int tenIndex = value.indexOf('十');
+        if (tenIndex < 0) {
+            return chineseDigit(value.charAt(0));
+        }
+        int tens = tenIndex == 0 ? 1 : chineseDigit(value.charAt(tenIndex - 1));
+        int ones = tenIndex == value.length() - 1 ? 0 : chineseDigit(value.charAt(tenIndex + 1));
+        return tens * 10 + ones;
+    }
+
+    private int chineseDigit(char value) {
+        switch (value) {
+            case '一':
+                return 1;
+            case '二':
+            case '两':
+                return 2;
+            case '三':
+                return 3;
+            case '四':
+                return 4;
+            case '五':
+                return 5;
+            case '六':
+                return 6;
+            case '七':
+                return 7;
+            case '八':
+                return 8;
+            case '九':
+                return 9;
+            default:
+                return 0;
+        }
+    }
+
     private String buildClarifyText(AgentPlan plan) {
         if (plan.getMissingFields().contains("start_time")) {
-            return "你想安排在什么时间？";
+            if (AgentConstants.INTENT_UPDATE_EVENT.equals(plan.getIntent())) {
+                return "你想把日程调整到什么时间？";
+            }
+            if (AgentConstants.INTENT_QUERY_EVENT.equals(plan.getIntent())) {
+                return "你想查询哪个时间段的日程？";
+            }
+            if (AgentConstants.INTENT_CREATE_EVENT.equals(plan.getIntent())) {
+                return "你想安排在什么时间？";
+            }
+            return "我还缺少时间信息，你可以补充得更具体一些吗？";
         }
         if (plan.getMissingFields().contains("title")) {
-            return "你想创建什么日程？";
+            if (AgentConstants.INTENT_DELETE_EVENT.equals(plan.getIntent())) {
+                return "你想删除哪个日程？";
+            }
+            if (AgentConstants.INTENT_UPDATE_EVENT.equals(plan.getIntent())) {
+                return "你想修改哪个日程？";
+            }
+            if (AgentConstants.INTENT_CREATE_EVENT.equals(plan.getIntent())) {
+                return "你想创建什么日程？";
+            }
+            return "我还缺少目标日程信息，你可以补充得更具体一些吗？";
         }
         return "我没有理解清楚，你可以换一种说法吗？";
     }
@@ -604,17 +894,40 @@ public class AgentApplicationService {
         }
     }
 
-    private void applyConversationContext(AgentExecuteRequest request) {
-        CommandTaskEntity clarification = commandWorkflowService.findLatestNeedClarification(
-                request.getUserId(),
-                request.getSessionId(),
-                clarificationTimeoutMinutes
-        );
+    private void applyConversationContext(AgentExecuteRequest request, ConversationStateEntity activeState) {
+        if (activeState == null
+                || !ConversationConstants.STATE_CLARIFY.equals(activeState.getStateType())
+                || !StringUtils.hasText(activeState.getTaskId())) {
+            return;
+        }
+        CommandTaskEntity clarification = commandWorkflowService.findTask(activeState.getTaskId());
         if (clarification == null || !shouldMergeClarification(request.getText())) {
             return;
         }
         request.setText(clarification.getInputText() + " " + request.getText());
         commandWorkflowService.markClarificationContinued(clarification.getTaskId());
+    }
+
+    private ConversationStateEntity abandonStateForNewCommand(
+            AgentExecuteRequest request,
+            ConversationStateEntity activeState
+    ) {
+        if (activeState == null
+                || (ConversationConstants.STATE_CLARIFY.equals(activeState.getStateType())
+                && shouldMergeClarification(request.getText()))) {
+            return activeState;
+        }
+        if (ConversationConstants.STATE_CLARIFY.equals(activeState.getStateType())) {
+            commandWorkflowService.cancelTask(activeState.getTaskId(), "已被新的指令替代。");
+        } else if (StringUtils.hasText(activeState.getConfirmToken())) {
+            AgentCancelRequest cancelRequest = new AgentCancelRequest();
+            cancelRequest.setUserId(request.getUserId());
+            cancelRequest.setSessionId(request.getSessionId());
+            cancelRequest.setConfirmToken(activeState.getConfirmToken());
+            cancel(cancelRequest);
+        }
+        conversationMemoryService.closeState(activeState);
+        return null;
     }
 
     private boolean shouldMergeClarification(String text) {

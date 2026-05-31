@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -83,6 +84,8 @@ public class LlmRouterAgent {
         variables.put("current_time", request.getCurrentTime());
         variables.put("timezone", StringUtils.hasText(request.getTimezone()) ? request.getTimezone() : "Asia/Shanghai");
         variables.put("text", request.getText());
+        variables.put("history", StringUtils.hasText(request.getHistory()) ? request.getHistory() : "无");
+        variables.put("conversation_state", StringUtils.hasText(request.getConversationState()) ? request.getConversationState() : "无");
         return variables;
     }
 
@@ -131,8 +134,10 @@ public class LlmRouterAgent {
         plan.setActionType(AgentConstants.ACTION_CREATE_EVENT);
         plan.setNeedConfirm(true);
 
-        LocalDateTime startTime = normalizeRelativeDate(parseDateTime(slots.getStartTime()), request);
-        LocalDateTime endTime = normalizeRelativeDate(parseDateTime(slots.getEndTime()), request);
+        LocalDateTime rawStartTime = parseDateTime(slots.getStartTime());
+        LocalDateTime rawEndTime = parseDateTime(slots.getEndTime());
+        LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
+        LocalDateTime endTime = normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request);
 
         CreateEventRequest createRequest = new CreateEventRequest();
         createRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
@@ -170,8 +175,11 @@ public class LlmRouterAgent {
 
         QueryEventRequest queryRequest = new QueryEventRequest();
         queryRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
-        queryRequest.setStartTime(normalizeRelativeDate(parseDateTime(slots.getQueryStartTime()), request));
-        queryRequest.setEndTime(normalizeRelativeDate(parseDateTime(slots.getQueryEndTime()), request));
+        LocalDateTime rawStartTime = parseDateTime(slots.getQueryStartTime());
+        LocalDateTime rawEndTime = parseDateTime(slots.getQueryEndTime());
+        LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
+        queryRequest.setStartTime(startTime);
+        queryRequest.setEndTime(normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request));
         queryRequest.setKeyword(trimToNull(slots.getKeyword()));
         plan.setQueryEventRequest(queryRequest);
 
@@ -189,17 +197,19 @@ public class LlmRouterAgent {
         plan.setNeedConfirm(true);
         plan.setEventResolveRequest(buildResolveRequest(slots, request));
 
-        LocalDateTime newStart = normalizeRelativeDate(parseDateTime(slots.getNewStartTime()), request);
+        LocalDateTime rawStartTime = parseDateTime(slots.getNewStartTime());
+        LocalDateTime rawEndTime = parseDateTime(slots.getNewEndTime());
+        LocalDateTime newStart = normalizeRelativeDate(rawStartTime, request);
         UpdateEventRequest updateRequest = new UpdateEventRequest();
         updateRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         updateRequest.setStartTime(newStart);
         updateRequest.setEndTime(defaultValueResolver.resolveEndTime(
                 newStart,
-                normalizeRelativeDate(parseDateTime(slots.getNewEndTime()), request)
+                normalizeRelativeEnd(rawStartTime, rawEndTime, newStart, request)
         ));
         plan.setUpdateEventRequest(updateRequest);
 
-        ensureResolveTitle(plan);
+        ensureResolveCriteria(plan);
         if (newStart == null && !plan.getMissingFields().contains("start_time")) {
             plan.getMissingFields().add("start_time");
         }
@@ -210,7 +220,7 @@ public class LlmRouterAgent {
         plan.setActionType(AgentConstants.ACTION_DELETE_EVENT);
         plan.setNeedConfirm(true);
         plan.setEventResolveRequest(buildResolveRequest(slots, request));
-        ensureResolveTitle(plan);
+        ensureResolveCriteria(plan);
         ensureMutationSteps(plan, "DELETE_EVENT", "calendar.delete");
     }
 
@@ -218,14 +228,21 @@ public class LlmRouterAgent {
         EventResolveRequest resolveRequest = new EventResolveRequest();
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         resolveRequest.setTitleKeyword(trimToNull(slots.getTargetTitle()));
-        resolveRequest.setRangeStart(normalizeRelativeDate(parseDateTime(slots.getTargetStartTime()), request));
-        resolveRequest.setRangeEnd(normalizeRelativeDate(parseDateTime(slots.getTargetEndTime()), request));
+        LocalDateTime rawStartTime = parseDateTime(slots.getTargetStartTime());
+        LocalDateTime rawEndTime = parseDateTime(slots.getTargetEndTime());
+        LocalDateTime startTime = normalizeRelativeDate(rawStartTime, request);
+        resolveRequest.setRangeStart(startTime);
+        resolveRequest.setRangeEnd(normalizeRelativeEnd(rawStartTime, rawEndTime, startTime, request));
         return resolveRequest;
     }
 
-    private void ensureResolveTitle(AgentPlan plan) {
-        if (!StringUtils.hasText(plan.getEventResolveRequest().getTitleKeyword())
-                && !plan.getMissingFields().contains("title")) {
+    private void ensureResolveCriteria(AgentPlan plan) {
+        EventResolveRequest request = plan.getEventResolveRequest();
+        boolean hasTitle = StringUtils.hasText(request.getTitleKeyword());
+        boolean hasTimeRange = request.getRangeStart() != null && request.getRangeEnd() != null;
+        if (hasTitle || hasTimeRange) {
+            plan.getMissingFields().removeIf("title"::equals);
+        } else if (!plan.getMissingFields().contains("title")) {
             plan.getMissingFields().add("title");
         }
     }
@@ -308,8 +325,22 @@ public class LlmRouterAgent {
             expectedDate = currentDate.plusDays(2);
         } else if (request.getText().contains("明天")) {
             expectedDate = currentDate.plusDays(1);
+        } else if (request.getText().contains("今天")) {
+            expectedDate = currentDate;
         }
         return expectedDate == null ? value : LocalDateTime.of(expectedDate, value.toLocalTime());
+    }
+
+    private LocalDateTime normalizeRelativeEnd(
+            LocalDateTime rawStart,
+            LocalDateTime rawEnd,
+            LocalDateTime normalizedStart,
+            AgentExecuteRequest request
+    ) {
+        if (rawStart != null && rawEnd != null && rawEnd.isAfter(rawStart) && normalizedStart != null) {
+            return normalizedStart.plus(Duration.between(rawStart, rawEnd));
+        }
+        return normalizeRelativeDate(rawEnd, request);
     }
 
     private LocalDateTime parseCurrentTime(String value) {

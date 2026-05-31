@@ -3,7 +3,7 @@
     <div class="selection-heading">
       <div>
         <h2>选择目标日程</h2>
-        <p>找到多个匹配项，请选择本次需要操作的日程。</p>
+        <p>找到多个匹配项。你可以直接说“第一个”或点击目标日程。</p>
       </div>
       <el-button plain type="danger" :disabled="loadingIndex !== null" @click="$emit('cancel')">取消</el-button>
     </div>

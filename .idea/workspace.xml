@@ -5,54 +5,32 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="72f1bd31-bba3-4742-b1a4-008480a82ffa" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/api/agentApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/api/agentApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/api/calendarApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/api/calendarApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/api/http.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/api/http.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/api/reminderApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/api/reminderApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/CalendarView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/StatusHeader.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/ConflictSuggestionPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/ConflictSuggestionPanel.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/EventCandidatePanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/EventCandidatePanel.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/VoiceCommandPanel.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/components/WorkflowTimeline.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/styles.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/types/agent.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/VoiceCal/src/types/calendar.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/types/calendar.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/VoiceCal/src/utils/session.ts" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/utils/session.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/VoiceCal/src/views/VoiceCalPage.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ActionPlanBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/ActionPlanBuilder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/AgentApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CalendarAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/CalendarAgent.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/LlmRouterAgent.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/WorkflowService.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/AgentController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/AgentController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/CalendarController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/CalendarController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/ScheduledJobController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/SkillController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/SkillController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/WorkflowController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/controller/WorkflowController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/DashScopeLlmClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/PromptTemplateService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/llm/PromptTemplateService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockEmailProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockEmailProvider.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockMeetingProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockMeetingProvider.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockSmsProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/mock/MockSmsProvider.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/ExecutorDefinition.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/ExecutorDefinition.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/NativeToolRegistry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/NativeToolRegistry.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillDefinition.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillDefinition.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillLoader.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillLoader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillRegistry.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillRegistry.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillSelector.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillSelector.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillValidator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/skill/SkillValidator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/GenericToolAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/GenericToolAgent.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/MockToolAdapter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/MockToolAdapter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/NativeToolAdapter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/NativeToolAdapter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/SchedulerToolAdapter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/SchedulerToolAdapter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/ToolAdapter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/ToolAdapter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/ToolAdapterFactory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/tool/ToolAdapterFactory.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/RouterAgent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/agent/RouterAgent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/AgentExecuteRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/voice/agent/model/dto/AgentExecuteRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/prompts/router-agent-prompt.md" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/prompts/router-agent-prompt.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/schema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/schema.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/ApiTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/ApiTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/AgentApplicationServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/AgentApplicationServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/LlmRouterAgentTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/voice/agent/RouterAgentTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/voice/agent/RouterAgentTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="190" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -82,45 +60,45 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "JUnit.AgentRouteTest.executeAgentRouteShouldReturnAgentResponse.executor": "Run",
-    "JUnit.ApiTest.api_test.executor": "Run",
-    "Maven.VoiceCalAgent [clean].executor": "Run",
-    "Maven.VoiceCalAgent [install].executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "Spring Boot.VoiceApplication.executor": "Run",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "F:/BaiduNetdiskDownload/2026/AI/VoiceCalAgent",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Project",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.43843496",
-    "settings.editor.selected.configurable": "configurable.group.tools",
-    "ts.external.directory.path": "F:\\BaiduNetdiskDownload\\2026\\AI\\VoiceCalAgent\\VoiceCal\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;JUnit.AgentRouteTest.executeAgentRouteShouldReturnAgentResponse.executor&quot;: &quot;Run&quot;,
+    &quot;JUnit.ApiTest.api_test.executor&quot;: &quot;Run&quot;,
+    &quot;Maven.VoiceCalAgent [clean].executor&quot;: &quot;Run&quot;,
+    &quot;Maven.VoiceCalAgent [install].executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.VoiceApplication.executor&quot;: &quot;Run&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/BaiduNetdiskDownload/2026/AI/VoiceCalAgent&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.43843496&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.tools&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;F:\\BaiduNetdiskDownload\\2026\\AI\\VoiceCalAgent\\VoiceCal\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "mysql"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;mysql&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Spring Boot.VoiceApplication">
     <configuration name="AgentRouteTest.executeAgentRouteShouldReturnAgentResponse" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
       <module name="VoiceCalAgent" />
@@ -180,7 +158,8 @@
       <workItem from="1780062766510" duration="109000" />
       <workItem from="1780062885930" duration="185000" />
       <workItem from="1780063084503" duration="7830000" />
-      <workItem from="1780106596657" duration="27504000" />
+      <workItem from="1780106596657" duration="32433000" />
+      <workItem from="1780192564148" duration="2605000" />
     </task>
     <task id="LOCAL-00001" summary="实体类，VO，DTO">
       <option name="closed" value="true" />

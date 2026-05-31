@@ -6,6 +6,7 @@ import com.voice.agent.agent.DefaultValueResolver;
 import com.voice.agent.agent.LlmRouterAgent;
 import com.voice.agent.agent.RouterAgent;
 import com.voice.agent.model.dto.AgentExecuteRequest;
+import com.voice.agent.model.dto.EventResolveRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,8 +16,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,8 +36,8 @@ class RouterAgentTest {
     @BeforeEach
     void setUp() {
         routerAgent = new RouterAgent(defaultValueResolver, llmRouterAgent);
-        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
-        when(llmRouterAgent.route(any())).thenThrow(new IllegalStateException("disabled"));
+        lenient().when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        lenient().when(llmRouterAgent.route(any())).thenThrow(new IllegalStateException("disabled"));
     }
 
     @Test
@@ -56,6 +61,93 @@ class RouterAgentTest {
         assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
         assertEquals("项目会", plan.getEventResolveRequest().getTitleKeyword());
         assertEquals(LocalDateTime.of(2026, 5, 31, 15, 0), plan.getEventResolveRequest().getRangeStart());
+    }
+
+    @Test
+    void shouldResolveDeleteByDayWithoutRequiringTitle() {
+        AgentPlan plan = routerAgent.route(request("帮我删除今天的日程"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertTrue(plan.getEventResolveRequest().getTitleKeyword().isEmpty());
+        assertEquals(LocalDateTime.of(2026, 5, 30, 0, 0), plan.getEventResolveRequest().getRangeStart());
+        assertEquals(LocalDateTime.of(2026, 5, 31, 0, 0), plan.getEventResolveRequest().getRangeEnd());
+        assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
+    void shouldResolveDeleteByDayOfMonthWithoutRequiringTitle() {
+        AgentPlan plan = routerAgent.route(request("帮我删除30号的日程"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertTrue(plan.getEventResolveRequest().getTitleKeyword().isEmpty());
+        assertEquals(LocalDateTime.of(2026, 5, 30, 0, 0), plan.getEventResolveRequest().getRangeStart());
+        assertEquals(LocalDateTime.of(2026, 5, 31, 0, 0), plan.getEventResolveRequest().getRangeEnd());
+        assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
+    void shouldOverrideLlmCreateIntentForExplicitDeleteCommand() {
+        AgentPlan incorrectLlmPlan = new AgentPlan();
+        incorrectLlmPlan.setIntent(AgentConstants.INTENT_CREATE_EVENT);
+        incorrectLlmPlan.getMissingFields().add("title");
+        doReturn(incorrectLlmPlan).when(llmRouterAgent).route(any());
+
+        AgentPlan plan = routerAgent.route(request("帮我删除30号的日程"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertEquals(LocalDateTime.of(2026, 5, 30, 0, 0), plan.getEventResolveRequest().getRangeStart());
+        assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
+    void shouldEnrichMissingDeleteRangeForDayOfMonth() {
+        AgentPlan incompleteLlmPlan = new AgentPlan();
+        incompleteLlmPlan.setIntent(AgentConstants.INTENT_DELETE_EVENT);
+        incompleteLlmPlan.setEventResolveRequest(new EventResolveRequest());
+        incompleteLlmPlan.getMissingFields().add("title");
+        doReturn(incompleteLlmPlan).when(llmRouterAgent).route(any());
+
+        AgentPlan plan = routerAgent.route(request("帮我删除30号的日程"));
+
+        assertEquals(LocalDateTime.of(2026, 5, 30, 0, 0), plan.getEventResolveRequest().getRangeStart());
+        assertEquals(LocalDateTime.of(2026, 5, 31, 0, 0), plan.getEventResolveRequest().getRangeEnd());
+        assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
+    void shouldRequireTargetWhenDeleteHasNeitherTitleNorTime() {
+        AgentPlan plan = routerAgent.route(request("帮我删除日程"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertTrue(plan.getMissingFields().contains("title"));
+        assertNull(plan.getEventResolveRequest().getRangeStart());
+        assertNull(plan.getEventResolveRequest().getRangeEnd());
+    }
+
+    @Test
+    void shouldNotConstrainTitleOnlyDeleteToToday() {
+        AgentPlan plan = routerAgent.route(request("帮我删除项目会"));
+
+        assertEquals(AgentConstants.INTENT_DELETE_EVENT, plan.getIntent());
+        assertEquals("项目会", plan.getEventResolveRequest().getTitleKeyword());
+        assertNull(plan.getEventResolveRequest().getRangeStart());
+        assertNull(plan.getEventResolveRequest().getRangeEnd());
+        assertFalse(plan.getMissingFields().contains("title"));
+    }
+
+    @Test
+    void shouldNotConstrainTitleOnlyUpdateToToday() {
+        when(defaultValueResolver.resolveEndTime(any(LocalDateTime.class), any())).thenAnswer(invocation ->
+                ((LocalDateTime) invocation.getArgument(0)).plusHours(1)
+        );
+
+        AgentPlan plan = routerAgent.route(request("把项目会改到四点"));
+
+        assertEquals(AgentConstants.INTENT_UPDATE_EVENT, plan.getIntent());
+        assertEquals("项目会", plan.getEventResolveRequest().getTitleKeyword());
+        assertNull(plan.getEventResolveRequest().getRangeStart());
+        assertNull(plan.getEventResolveRequest().getRangeEnd());
+        assertFalse(plan.getMissingFields().contains("title"));
     }
 
     @Test

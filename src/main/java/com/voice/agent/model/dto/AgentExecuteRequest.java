@@ -7,6 +7,8 @@ public class AgentExecuteRequest {
     private String text;
     private String timezone;
     private String currentTime;
+    private String history;
+    private String conversationState;
 
     public Long getUserId() {
         return userId;
@@ -54,5 +56,21 @@ public class AgentExecuteRequest {
 
     public void setCurrentTime(String currentTime) {
         this.currentTime = currentTime;
+    }
+
+    public String getHistory() {
+        return history;
+    }
+
+    public void setHistory(String history) {
+        this.history = history;
+    }
+
+    public String getConversationState() {
+        return conversationState;
+    }
+
+    public void setConversationState(String conversationState) {
+        this.conversationState = conversationState;
     }
 }

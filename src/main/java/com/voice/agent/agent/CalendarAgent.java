@@ -143,7 +143,7 @@ public class CalendarAgent {
         action.setPayload(payload);
         action.setOriginalEvent(event);
         action.setReplyText("我将删除日程「" + event.getTitle() + "」，时间是 "
-                + event.getStartTime().format(DISPLAY_TIME_FORMATTER) + "，是否确认？");
+                + event.getStartTime().format(DISPLAY_TIME_FORMATTER) + "。请回复确认或取消。");
         return action;
     }
 
@@ -191,12 +191,26 @@ public class CalendarAgent {
         return "已删除日程「" + payload.getTitle() + "」。";
     }
 
+    public String buildEventSelectionReply(List<CalendarEventVO> candidates) {
+        StringBuilder builder = new StringBuilder("找到多个匹配日程，请回复要操作第几个：");
+        for (int index = 0; index < candidates.size(); index++) {
+            CalendarEventVO candidate = candidates.get(index);
+            builder.append(index + 1)
+                    .append(". ")
+                    .append(candidate.getStartTime().format(DISPLAY_TIME_FORMATTER))
+                    .append(" ")
+                    .append(candidate.getTitle())
+                    .append("；");
+        }
+        return builder.append("也可以回复取消。").toString();
+    }
+
     private String buildUpdateConfirmText(CalendarEventVO event, UpdateEventRequest request) {
         return "我将把日程「" + event.getTitle() + "」调整为 "
                 + request.getStartTime().format(DISPLAY_TIME_FORMATTER)
                 + " 到 "
                 + request.getEndTime().format(DISPLAY_TIME_FORMATTER)
-                + "，是否确认？";
+                + "。请回复确认或取消。";
     }
 
     private String buildCreateConfirmText(CreateEventRequest request) {
@@ -204,7 +218,7 @@ public class CalendarAgent {
                 + request.getStartTime().format(DISPLAY_TIME_FORMATTER)
                 + " 到 "
                 + request.getEndTime().format(DISPLAY_TIME_FORMATTER)
-                + "，是否确认？";
+                + "。请回复确认或取消。";
     }
 
     private String buildConflictReplyText(CreateEventRequest request, List<FreeSlotVO> slots) {
@@ -220,7 +234,7 @@ public class CalendarAgent {
                     .append(slot.getEndTime().format(DISPLAY_TIME_FORMATTER))
                     .append("；");
         }
-        return builder.toString();
+        return builder.append("请回复第几个，或回复取消。").toString();
     }
 
     public static class PreparedCreateAction {

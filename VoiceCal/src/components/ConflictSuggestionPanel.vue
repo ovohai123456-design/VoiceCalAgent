@@ -3,7 +3,7 @@
     <div class="heading">
       <div>
         <h2>时间冲突</h2>
-        <p>原定时间不可用，请选择一个候选时间。</p>
+        <p>原定时间不可用。你可以直接说“第一个”或点击候选时间。</p>
       </div>
       <el-button plain type="danger" :disabled="loadingIndex !== null" @click="$emit('cancel')">取消</el-button>
     </div>

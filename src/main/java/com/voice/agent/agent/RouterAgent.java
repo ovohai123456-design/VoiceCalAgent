@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.DateTimeException;
 import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +28,9 @@ public class RouterAgent {
     private static final Logger log = LoggerFactory.getLogger(RouterAgent.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Pattern HOUR_PATTERN = Pattern.compile("(凌晨|早上|上午|中午|下午|晚上)?([0-9]{1,2}|[一二两三四五六七八九十]{1,3})点");
+    private static final Pattern MONTH_DAY_PATTERN = Pattern.compile("(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})(?:号|日)?");
+    private static final Pattern DAY_OF_MONTH_PATTERN = Pattern.compile("(?<!\\d)(\\d{1,2})(?:号|日)");
+    private static final String DATE_EXPRESSION_REGEX = "(今天|明天|后天|(?:[0-9]{4}年)?[0-9]{1,2}月[0-9]{1,2}[号日]?|[0-9]{1,2}[号日])";
     private static final Pattern SMS_RECEIVER_PATTERN = Pattern.compile(
             "(?:短信提醒|发短信给)([\\u4e00-\\u9fa5A-Za-z0-9_]{1,20})"
     );
@@ -57,6 +61,13 @@ public class RouterAgent {
                     llmPlan.getNeedConfirm(),
                     llmPlan.getMissingFields()
             );
+            if (isDelete(text) && !AgentConstants.INTENT_DELETE_EVENT.equals(llmPlan.getIntent())) {
+                log.warn("LLM Router intent overridden by explicit delete command intent={}", llmPlan.getIntent());
+                return buildDeletePlan(request);
+            }
+            if (isDelete(text)) {
+                enrichDeleteResolveRange(llmPlan, request);
+            }
             return llmPlan;
         } catch (RuntimeException e) {
             log.warn("LLM Router failed, fallback to rule router: {}", e.getMessage());
@@ -144,7 +155,8 @@ public class RouterAgent {
         String[] parts = request.getText().split("(改到|改成|调整到|挪到)", 2);
         String targetText = parts[0];
         String updateText = parts.length > 1 ? parts[1] : "";
-        LocalDate targetDate = parseDate(targetText, currentTime.toLocalDate());
+        LocalDate explicitTargetDate = parseExplicitDate(targetText, currentTime.toLocalDate());
+        LocalDate targetDate = explicitTargetDate == null ? currentTime.toLocalDate() : explicitTargetDate;
         LocalTime targetTime = parseHour(targetText);
         LocalTime newTime = parseHour(updateText);
         if (!hasTimePeriod(updateText) && targetTime != null && newTime != null
@@ -157,7 +169,7 @@ public class RouterAgent {
         EventResolveRequest resolveRequest = new EventResolveRequest();
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         resolveRequest.setTitleKeyword(parseUpdateTitle(targetText));
-        fillResolveRange(resolveRequest, targetDate, targetTime);
+        fillResolveRangeIfPresent(resolveRequest, explicitTargetDate != null, targetDate, targetTime);
         plan.setEventResolveRequest(resolveRequest);
 
         UpdateEventRequest updateRequest = new UpdateEventRequest();
@@ -167,9 +179,7 @@ public class RouterAgent {
         updateRequest.setEndTime(defaultValueResolver.resolveEndTime(newStart, null));
         plan.setUpdateEventRequest(updateRequest);
 
-        if (!StringUtils.hasText(resolveRequest.getTitleKeyword())) {
-            plan.getMissingFields().add("title");
-        }
+        ensureResolveCriteria(plan);
         if (newStart == null) {
             plan.getMissingFields().add("start_time");
         }
@@ -181,18 +191,17 @@ public class RouterAgent {
 
     private AgentPlan buildDeletePlan(AgentExecuteRequest request) {
         LocalDateTime currentTime = parseCurrentTime(request.getCurrentTime());
-        LocalDate targetDate = parseDate(request.getText(), currentTime.toLocalDate());
+        LocalDate explicitTargetDate = parseExplicitDate(request.getText(), currentTime.toLocalDate());
+        LocalDate targetDate = explicitTargetDate == null ? currentTime.toLocalDate() : explicitTargetDate;
         LocalTime targetTime = parseHour(request.getText());
 
         AgentPlan plan = baseCalendarPlan(AgentConstants.INTENT_DELETE_EVENT, AgentConstants.ACTION_DELETE_EVENT, true);
         EventResolveRequest resolveRequest = new EventResolveRequest();
         resolveRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
         resolveRequest.setTitleKeyword(parseDeleteTitle(request.getText()));
-        fillResolveRange(resolveRequest, targetDate, targetTime);
+        fillResolveRangeIfPresent(resolveRequest, explicitTargetDate != null, targetDate, targetTime);
         plan.setEventResolveRequest(resolveRequest);
-        if (!StringUtils.hasText(resolveRequest.getTitleKeyword())) {
-            plan.getMissingFields().add("title");
-        }
+        ensureResolveCriteria(plan);
         plan.getSteps().add(AgentPlanStep.of(1, "RouterAgent", "ROUTE", "router.route"));
         plan.getSteps().add(AgentPlanStep.of(2, "CalendarAgent", "RESOLVE_EVENT", "calendar.event.resolve"));
         plan.getSteps().add(AgentPlanStep.of(3, "CalendarAgent", "DELETE_EVENT", "calendar.delete"));
@@ -237,6 +246,37 @@ public class RouterAgent {
         request.setRangeEnd(date.atTime(time).plusHours(1));
     }
 
+    private void fillResolveRangeIfPresent(EventResolveRequest request, boolean hasExplicitDate, LocalDate date, LocalTime time) {
+        if (hasExplicitDate || time != null) {
+            fillResolveRange(request, date, time);
+        }
+    }
+
+    private void enrichDeleteResolveRange(AgentPlan plan, AgentExecuteRequest request) {
+        if (!AgentConstants.INTENT_DELETE_EVENT.equals(plan.getIntent()) || plan.getEventResolveRequest() == null) {
+            return;
+        }
+        LocalDateTime currentTime = parseCurrentTime(request.getCurrentTime());
+        LocalDate explicitDate = parseExplicitDate(request.getText(), currentTime.toLocalDate());
+        EventResolveRequest resolveRequest = plan.getEventResolveRequest();
+        if (explicitDate != null && (resolveRequest.getRangeStart() == null || resolveRequest.getRangeEnd() == null)) {
+            fillResolveRange(resolveRequest, explicitDate, parseHour(request.getText()));
+            resolveRequest.setTitleKeyword(parseDeleteTitle(request.getText()));
+            ensureResolveCriteria(plan);
+        }
+    }
+
+    private void ensureResolveCriteria(AgentPlan plan) {
+        EventResolveRequest request = plan.getEventResolveRequest();
+        boolean hasTitle = StringUtils.hasText(request.getTitleKeyword());
+        boolean hasTimeRange = request.getRangeStart() != null && request.getRangeEnd() != null;
+        if (hasTitle || hasTimeRange) {
+            plan.getMissingFields().removeIf("title"::equals);
+        } else if (!plan.getMissingFields().contains("title")) {
+            plan.getMissingFields().add("title");
+        }
+    }
+
     private LocalDateTime parseCurrentTime(String currentTime) {
         if (StringUtils.hasText(currentTime)) {
             return LocalDateTime.parse(currentTime.trim(), DATE_TIME_FORMATTER);
@@ -251,13 +291,38 @@ public class RouterAgent {
     }
 
     private LocalDate parseDate(String text, LocalDate today) {
+        LocalDate explicitDate = parseExplicitDate(text, today);
+        return explicitDate == null ? today : explicitDate;
+    }
+
+    private LocalDate parseExplicitDate(String text, LocalDate today) {
         if (text.contains("后天")) {
             return today.plusDays(2);
         }
         if (text.contains("明天")) {
             return today.plusDays(1);
         }
-        return today;
+        if (text.contains("今天")) {
+            return today;
+        }
+        Matcher monthDayMatcher = MONTH_DAY_PATTERN.matcher(text);
+        if (monthDayMatcher.find()) {
+            int year = monthDayMatcher.group(1) == null ? today.getYear() : Integer.parseInt(monthDayMatcher.group(1));
+            return safeDate(year, Integer.parseInt(monthDayMatcher.group(2)), Integer.parseInt(monthDayMatcher.group(3)));
+        }
+        Matcher dayMatcher = DAY_OF_MONTH_PATTERN.matcher(text);
+        if (dayMatcher.find()) {
+            return safeDate(today.getYear(), today.getMonthValue(), Integer.parseInt(dayMatcher.group(1)));
+        }
+        return null;
+    }
+
+    private LocalDate safeDate(int year, int month, int dayOfMonth) {
+        try {
+            return LocalDate.of(year, month, dayOfMonth);
+        } catch (DateTimeException ignored) {
+            return null;
+        }
     }
 
     private LocalTime parseHour(String text) {
@@ -332,7 +397,7 @@ public class RouterAgent {
 
     private String parseTitle(String text) {
         String title = text
-                .replaceAll("(今天|明天|后天)", "")
+                .replaceAll(DATE_EXPRESSION_REGEX, "")
                 .replaceAll("(凌晨|早上|上午|中午|下午|晚上)?([0-9]{1,2}|[一二两三四五六七八九十]{1,3})点", "")
                 .replace("提醒我", "")
                 .replace("帮我", "")
@@ -365,7 +430,9 @@ public class RouterAgent {
 
     private String normalizeEventTitle(String text) {
         return text
-                .replaceAll("(今天|明天|后天)", "")
+                .replace("帮我", "")
+                .replace("请", "")
+                .replaceAll(DATE_EXPRESSION_REGEX, "")
                 .replaceAll("(凌晨|早上|上午|中午|下午|晚上)?([0-9]{1,2}|[一二两三四五六七八九十]{1,3})点", "")
                 .replace("的", "")
                 .replace("日程", "")

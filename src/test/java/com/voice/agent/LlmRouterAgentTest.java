@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -86,6 +87,30 @@ class LlmRouterAgentTest {
         assertEquals(
                 LocalDateTime.of(2026, 6, 1, 18, 0),
                 routerAgent.route(request).getCreateEventRequest().getEndTime()
+        );
+    }
+
+    @Test
+    void shouldAllowDeleteByTimeRangeWithoutTitle() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"DELETE_EVENT\",\"slots\":{"
+                        + "\"targetStartTime\":\"2026-05-29 00:00:00\","
+                        + "\"targetEndTime\":\"2026-05-30 00:00:00\"},"
+                        + "\"missingFields\":[\"title\"]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("帮我删除今天的日程");
+        request.setCurrentTime("2026-05-30 19:00:00");
+
+        assertFalse(routerAgent.route(request).getMissingFields().contains("title"));
+        assertEquals(
+                LocalDateTime.of(2026, 5, 30, 0, 0),
+                routerAgent.route(request).getEventResolveRequest().getRangeStart()
+        );
+        assertEquals(
+                LocalDateTime.of(2026, 5, 31, 0, 0),
+                routerAgent.route(request).getEventResolveRequest().getRangeEnd()
         );
     }
 }

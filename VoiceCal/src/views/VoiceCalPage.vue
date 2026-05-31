@@ -6,16 +6,13 @@
       <section class="main-column">
         <VoiceCommandPanel
           v-model="commandText"
-          :reply-text="replyText"
+          :messages="messages"
           :status="status"
           :last-input-type="lastInputType"
-          :show-confirm-actions="showConfirmActions"
           @manual-input="handleManualInput"
           @start-voice="handleStartVoice"
           @stop-voice="handleStopVoice"
           @submit="handleSubmit"
-          @confirm="handleConfirm"
-          @cancel="handleCancel"
         />
 
         <ConflictSuggestionPanel
@@ -53,7 +50,7 @@
 import { ElMessage, ElNotification } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { cancelAgent, confirmAgent, executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
+import { executeAgent, selectAgentEvent, selectAgentSlot } from '@/api/agentApi';
 import { listReminderTasks, type ReminderTask } from '@/api/reminderApi';
 import CalendarView from '@/components/CalendarView.vue';
 import ConflictSuggestionPanel from '@/components/ConflictSuggestionPanel.vue';
@@ -62,7 +59,7 @@ import StatusHeader from '@/components/StatusHeader.vue';
 import VoiceCommandPanel from '@/components/VoiceCommandPanel.vue';
 import WorkflowTimeline from '@/components/WorkflowTimeline.vue';
 import WorkspaceSidebar from '@/components/WorkspaceSidebar.vue';
-import type { AgentResponse, InputType, PageStatus, SuggestedSlot } from '@/types/agent';
+import type { AgentResponse, ConversationMessage, InputType, PageStatus, SuggestedSlot } from '@/types/agent';
 import type { CalendarEventItem } from '@/types/calendar';
 import {
   getBrowserNotificationPermission,
@@ -70,12 +67,15 @@ import {
   showBrowserNotification,
   type BrowserNotificationPermission,
 } from '@/utils/browserNotification';
-import { DEFAULT_SESSION_ID, DEFAULT_USER_ID, getCurrentTimezone } from '@/utils/session';
+import { DEFAULT_USER_ID, getCurrentTimezone, getSessionId } from '@/utils/session';
 import { createSpeechRecognition, speak, startRecognition, stopRecognition } from '@/utils/speech';
 import { formatCurrentTime } from '@/utils/time';
 
 const commandText = ref('');
-const replyText = ref('等待输入日程指令。');
+const sessionId = getSessionId();
+const messages = ref<ConversationMessage[]>([
+  { id: 1, role: 'ASSISTANT', text: '你好，我是 VoiceCal。你可以直接告诉我需要创建、查询、修改或删除什么日程。' },
+]);
 const status = ref<PageStatus>('IDLE');
 const currentTime = ref(formatCurrentTime());
 const confirmToken = ref('');
@@ -95,6 +95,7 @@ const notifiedReminderIds = new Set<number>();
 let timerId: number | null = null;
 let reminderTimerId: number | null = null;
 let reminderPollingInitialized = false;
+let messageSequence = 1;
 
 const statusLabel = computed(() => ({
   IDLE: '空闲',
@@ -107,13 +108,6 @@ const statusLabel = computed(() => ({
   FAILED: '失败',
   CANCELLED: '已取消',
 }[status.value]));
-
-const showConfirmActions = computed(
-  () => status.value === 'WAITING_CONFIRM'
-    && Boolean(confirmToken.value)
-    && !conflictSlots.value.length
-    && !eventCandidates.value.length,
-);
 
 const notificationButtonText = computed(() => {
   if (browserNotificationPermission.value === 'granted') return '系统通知已开启';
@@ -145,25 +139,10 @@ function handleStartVoice(): void {
     return;
   }
   speechRecognition.value = recognition;
-  const waitingForConfirmation = status.value === 'WAITING_CONFIRM';
   recognition.onresult = (event: SpeechRecognitionEvent) => {
     const transcript = Array.from({ length: event.results.length }, (_, index) => event.results[index][0].transcript).join('').trim();
-    if (waitingForConfirmation) {
-      if (conflictSlots.value.length || eventCandidates.value.length) {
-        ElMessage.warning('请在页面中选择一个候选项。');
-      } else if (isConfirmSpeech(transcript)) {
-        void handleConfirm();
-      } else if (isCancelSpeech(transcript)) {
-        void handleCancel();
-      } else {
-        ElMessage.warning('请说“确认”或“取消”。');
-      }
-      status.value = 'WAITING_CONFIRM';
-      return;
-    }
-    commandText.value = transcript;
-    lastInputType.value = 'VOICE';
-    status.value = 'RECOGNIZED';
+    if (!transcript) return;
+    void sendConversationMessage(transcript, 'VOICE');
   };
   recognition.onerror = () => {
     status.value = 'FAILED';
@@ -181,27 +160,28 @@ function handleStopVoice(): void {
   if (status.value === 'LISTENING') status.value = commandText.value.trim() ? 'RECOGNIZED' : 'IDLE';
 }
 
-function isConfirmSpeech(text: string): boolean {
-  return ['确认', '确定', '好的', '可以', '执行'].some((keyword) => text.includes(keyword));
-}
-
-function isCancelSpeech(text: string): boolean {
-  return ['取消', '不要', '算了', '停止'].some((keyword) => text.includes(keyword));
-}
-
 async function handleSubmit(): Promise<void> {
   const text = commandText.value.trim();
   if (!text) {
-    ElMessage.warning('请输入或说出日程指令。');
+    ElMessage.warning('请输入消息，或点击麦克风直接说。');
     return;
   }
+  await sendConversationMessage(text, lastInputType.value);
+}
+
+async function sendConversationMessage(text: string, inputType: InputType): Promise<void> {
+  const content = text.trim();
+  if (!content) return;
+  commandText.value = '';
+  lastInputType.value = inputType;
+  appendMessage('USER', content, inputType);
   status.value = 'WAITING_RESPONSE';
   try {
     await applyAgentResponse(await executeAgent({
       userId: DEFAULT_USER_ID,
-      sessionId: DEFAULT_SESSION_ID,
-      inputType: lastInputType.value,
-      text,
+      sessionId,
+      inputType,
+      text: content,
       timezone: getCurrentTimezone(),
       currentTime: formatCurrentTime(),
     }));
@@ -210,41 +190,20 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
-async function handleConfirm(): Promise<void> {
-  if (!confirmToken.value) return;
-  status.value = 'EXECUTING';
-  try {
-    await applyAgentResponse(await confirmAgent({
-      userId: DEFAULT_USER_ID,
-      sessionId: DEFAULT_SESSION_ID,
-      confirmToken: confirmToken.value,
-    }));
-  } catch (error) {
-    handleRequestError(error);
-  }
-}
-
 async function handleCancel(): Promise<void> {
   if (!confirmToken.value) return;
-  try {
-    const response = await cancelAgent({ userId: DEFAULT_USER_ID, sessionId: DEFAULT_SESSION_ID, confirmToken: confirmToken.value });
-    replyText.value = response.replyText || '本次操作已取消。';
-    clearPendingSelection();
-    status.value = 'CANCELLED';
-    await speak(response.speakText || replyText.value);
-    await refreshTimeline();
-  } catch (error) {
-    handleRequestError(error);
-  }
+  await sendConversationMessage('取消', 'TEXT');
 }
 
 async function handleSelectSlot(slotIndex: number): Promise<void> {
   if (!confirmToken.value) return;
   selectingSlotIndex.value = slotIndex;
+  appendMessage('USER', `第 ${slotIndex + 1} 个`, 'TEXT');
+  status.value = 'EXECUTING';
   try {
     await applyAgentResponse(await selectAgentSlot({
       userId: DEFAULT_USER_ID,
-      sessionId: DEFAULT_SESSION_ID,
+      sessionId,
       confirmToken: confirmToken.value,
       slotIndex,
     }));
@@ -258,10 +217,12 @@ async function handleSelectSlot(slotIndex: number): Promise<void> {
 async function handleSelectEvent(candidateIndex: number): Promise<void> {
   if (!confirmToken.value) return;
   selectingEventIndex.value = candidateIndex;
+  appendMessage('USER', `第 ${candidateIndex + 1} 个`, 'TEXT');
+  status.value = 'WAITING_RESPONSE';
   try {
     await applyAgentResponse(await selectAgentEvent({
       userId: DEFAULT_USER_ID,
-      sessionId: DEFAULT_SESSION_ID,
+      sessionId,
       confirmToken: confirmToken.value,
       candidateIndex,
     }));
@@ -275,19 +236,32 @@ async function handleSelectEvent(candidateIndex: number): Promise<void> {
 async function applyAgentResponse(response: AgentResponse): Promise<void> {
   taskId.value = response.taskId ?? taskId.value;
   confirmToken.value = response.confirmToken ?? '';
-  replyText.value = response.replyText;
   conflictSlots.value = extractSuggestedSlots(response);
   eventCandidates.value = extractEventCandidates(response);
-  await speak(response.speakText || response.replyText);
+  appendMessage('ASSISTANT', response.replyText);
   if (response.needConfirm || response.needEventSelection) status.value = 'WAITING_CONFIRM';
   else if (response.needClarify) status.value = 'RECOGNIZED';
   else status.value = 'DONE';
+  await speak(response.speakText || response.replyText);
   if (status.value === 'DONE') {
     clearPendingSelection();
     await refreshCalendar();
     await pollReminders();
   }
   await refreshTimeline();
+  if (shouldContinueVoiceConversation(response)) {
+    handleStartVoice();
+  }
+}
+
+function appendMessage(role: ConversationMessage['role'], text: string, inputType?: InputType): void {
+  if (!text.trim()) return;
+  messages.value.push({ id: ++messageSequence, role, text, inputType });
+}
+
+function shouldContinueVoiceConversation(response: AgentResponse): boolean {
+  return lastInputType.value === 'VOICE'
+    && Boolean(response.needConfirm || response.needClarify || response.needEventSelection);
 }
 
 function clearPendingSelection(): void {
@@ -356,7 +330,9 @@ function resolveReminderTitle(reminder: ReminderTask): string {
 function handleRequestError(error: unknown): void {
   console.error(error);
   status.value = 'FAILED';
-  ElMessage.error(error instanceof Error ? error.message : '系统请求失败，请稍后重试。');
+  const message = error instanceof Error ? error.message : '系统请求失败，请稍后重试。';
+  appendMessage('ASSISTANT', message);
+  ElMessage.error(message);
 }
 </script>
 

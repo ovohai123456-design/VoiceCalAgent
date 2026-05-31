@@ -8,6 +8,8 @@ import com.voice.agent.agent.CalendarAgent;
 import com.voice.agent.agent.CommandActionService;
 import com.voice.agent.agent.CommandWorkflowService;
 import com.voice.agent.agent.ConfirmService;
+import com.voice.agent.agent.ConversationConstants;
+import com.voice.agent.agent.ConversationMemoryService;
 import com.voice.agent.agent.DefaultValueResolver;
 import com.voice.agent.agent.RouterAgent;
 import com.voice.agent.model.dto.AgentConfirmRequest;
@@ -15,6 +17,7 @@ import com.voice.agent.model.dto.AgentExecuteRequest;
 import com.voice.agent.model.dto.CreateEventRequest;
 import com.voice.agent.model.entity.CommandActionEntity;
 import com.voice.agent.model.entity.CommandTaskEntity;
+import com.voice.agent.model.entity.ConversationStateEntity;
 import com.voice.agent.model.entity.ExecutionLogEntity;
 import com.voice.agent.model.entity.PendingConfirmationEntity;
 import com.voice.agent.model.vo.AgentResponse;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -40,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +66,8 @@ class AgentApplicationServiceTest {
     private ActionPlanBuilder actionPlanBuilder;
     @Mock
     private GenericToolAgent genericToolAgent;
+    @Mock
+    private ConversationMemoryService conversationMemoryService;
 
     private AgentApplicationService service;
 
@@ -74,7 +81,8 @@ class AgentApplicationServiceTest {
                 commandWorkflowService,
                 defaultValueResolver,
                 actionPlanBuilder,
-                genericToolAgent
+                genericToolAgent,
+                conversationMemoryService
         );
     }
 
@@ -164,6 +172,7 @@ class AgentApplicationServiceTest {
     void executeShouldMergeRecentClarificationContext() {
         AgentExecuteRequest request = executeRequest();
         request.setText("明天下午三点");
+        ConversationStateEntity activeState = clarificationState();
         CommandTaskEntity previous = new CommandTaskEntity();
         previous.setTaskId("task_previous");
         previous.setInputText("帮我安排项目会");
@@ -173,7 +182,8 @@ class AgentApplicationServiceTest {
         plan.getMissingFields().add("intent");
 
         when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
-        when(commandWorkflowService.findLatestNeedClarification(1L, "session_001", 10)).thenReturn(previous);
+        when(conversationMemoryService.latestActiveState(1L, "session_001")).thenReturn(activeState);
+        when(commandWorkflowService.findTask("task_previous")).thenReturn(previous);
         when(commandWorkflowService.createTask(request)).thenReturn(task);
         when(commandWorkflowService.addLog(eq("task_001"), eq(1), any(), any(), any(), any()))
                 .thenReturn(new ExecutionLogEntity());
@@ -183,6 +193,88 @@ class AgentApplicationServiceTest {
 
         assertEquals("帮我安排项目会 明天下午三点", request.getText());
         verify(commandWorkflowService).markClarificationContinued("task_previous");
+    }
+
+    @Test
+    void executeShouldReplaceClarificationStateWhenDeleteCommandStarts() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("帮我删除今天的日程");
+        ConversationStateEntity activeState = clarificationState();
+        CommandTaskEntity task = task();
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent(AgentConstants.INTENT_UNKNOWN);
+        plan.getMissingFields().add("intent");
+
+        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        when(conversationMemoryService.latestActiveState(1L, "session_001")).thenReturn(activeState);
+        when(commandWorkflowService.createTask(request)).thenReturn(task);
+        when(commandWorkflowService.addLog(eq("task_001"), eq(1), any(), any(), any(), any()))
+                .thenReturn(new ExecutionLogEntity());
+        when(routerAgent.route(request)).thenReturn(plan);
+
+        service.execute(request);
+
+        assertEquals("帮我删除今天的日程", request.getText());
+        verify(commandWorkflowService).cancelTask("task_previous", "已被新的指令替代。");
+        verify(conversationMemoryService).closeState(activeState);
+        verify(commandWorkflowService, never()).markClarificationContinued("task_previous");
+    }
+
+    @Test
+    void deleteClarificationShouldAskWhichEventToDelete() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("删除日程");
+        CommandTaskEntity task = task();
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent(AgentConstants.INTENT_DELETE_EVENT);
+        plan.getMissingFields().add("title");
+
+        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        when(commandWorkflowService.createTask(request)).thenReturn(task);
+        when(commandWorkflowService.addLog(eq("task_001"), eq(1), any(), any(), any(), any()))
+                .thenReturn(new ExecutionLogEntity());
+        when(routerAgent.route(request)).thenReturn(plan);
+
+        AgentResponse response = service.execute(request);
+
+        assertEquals("你想删除哪个日程？", response.getReplyText());
+    }
+
+    @Test
+    void executeShouldCancelPendingActionWhenNewTextDoesNotConfirmIt() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("天气怎么样");
+        ConversationStateEntity activeState = confirmationState();
+        PendingConfirmationEntity confirmation = confirmation();
+        CommandActionEntity action = action();
+        action.setTaskId("task_previous");
+        CommandTaskEntity task = task();
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent(AgentConstants.INTENT_UNKNOWN);
+        plan.getMissingFields().add("intent");
+
+        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        when(conversationMemoryService.latestActiveState(1L, "session_001")).thenReturn(activeState);
+        when(confirmService.getPendingConfirmation(1L, "session_001", "ct_001")).thenReturn(confirmation);
+        when(commandActionService.getAction("action_001")).thenReturn(action);
+        when(commandWorkflowService.createTask(request)).thenReturn(task);
+        when(commandWorkflowService.addLog(eq("task_001"), eq(1), any(), any(), any(), any()))
+                .thenReturn(new ExecutionLogEntity());
+        when(routerAgent.route(request)).thenReturn(plan);
+
+        service.execute(request);
+
+        verify(confirmService).markCanceled(confirmation);
+        verify(commandActionService).markCanceled(action);
+        verify(commandWorkflowService).cancelTask("task_previous", "已取消该操作。");
+        verify(conversationMemoryService).closeState(activeState);
+    }
+
+    @Test
+    void shouldParseNaturalLanguageCandidateIndexBeyondThirdOption() {
+        assertEquals(Integer.valueOf(3), ReflectionTestUtils.invokeMethod(service, "parseSelectionIndex", "我选第四个"));
+        assertEquals(Integer.valueOf(11), ReflectionTestUtils.invokeMethod(service, "parseSelectionIndex", "第十二个"));
+        assertEquals(Integer.valueOf(4), ReflectionTestUtils.invokeMethod(service, "parseSelectionIndex", "5号"));
     }
 
     @Test
@@ -290,6 +382,24 @@ class AgentApplicationServiceTest {
         confirmation.setActionId("action_001");
         confirmation.setConfirmToken("ct_001");
         return confirmation;
+    }
+
+    private ConversationStateEntity clarificationState() {
+        ConversationStateEntity state = new ConversationStateEntity();
+        state.setId(1L);
+        state.setTaskId("task_previous");
+        state.setStateType(ConversationConstants.STATE_CLARIFY);
+        return state;
+    }
+
+    private ConversationStateEntity confirmationState() {
+        ConversationStateEntity state = new ConversationStateEntity();
+        state.setId(2L);
+        state.setTaskId("task_previous");
+        state.setActionId("action_001");
+        state.setConfirmToken("ct_001");
+        state.setStateType(ConversationConstants.STATE_CONFIRM);
+        return state;
     }
 
     private CalendarEventVO calendarEvent() {

@@ -5,6 +5,12 @@
 当前时间：{{current_time}}
 用户时区：{{timezone}}
 
+最近对话历史：
+{{history}}
+
+当前对话状态：
+{{conversation_state}}
+
 可用意图 intent：
 - CREATE_EVENT：创建日程、安排事项、设置提醒
 - QUERY_EVENT：查询日程、查看安排
@@ -28,6 +34,9 @@
 10. For an online meeting request, set onlineMeeting=true. Do not invent meetingUrl; the backend tool will create it.
 11. For an SMS reminder request, extract the named receiver into smsReceiver and the optional message into smsContent. Do not invent a receiver.
 12. For an email reminder request, extract the email address into emailReceiver and optional message into emailContent. Do not invent an email address.
+13. 如果当前输入是对上一轮问题的补充，要结合最近对话历史和当前对话状态理解，不要当成全新任务。
+14. 如果当前输入明确表达了新的创建、查询、修改或删除意图，以当前输入为新任务，不要沿用上一轮待补充任务。
+15. 修改、删除已有日程时，目标标题和目标时间范围至少提供一种即可。用户只说“今天的日程”或“30号的日程”这类日期时，将对应日期 00:00:00 到次日 00:00:00 写入 targetStartTime 和 targetEndTime，不要因为缺少 targetTitle 要求补充标题。
 
 JSON 格式：
 {
