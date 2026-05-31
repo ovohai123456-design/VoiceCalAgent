@@ -17,11 +17,13 @@
 - UPDATE_EVENT：修改已有日程
 - DELETE_EVENT：删除或取消已有日程
 - RUN_SKILLS：执行天气、导航等不需要日历 CRUD 的 Skill
+- CHAT：普通问候、闲聊或不需要执行日历和工具操作的对话
 - UNKNOWN：无法理解
 
 可用 Agent：
 - CalendarAgent：负责日程创建、查询、修改、删除、冲突检测
 - GenericToolAgent：根据 Skill Registry 执行插件能力
+- ChatAgent：回复普通问候和闲聊
 
 运行时可用 Skill Registry：
 {{skills}}
@@ -50,12 +52,13 @@
 21. 导航任务必须由用户明确提供目的地。用户只说“导航”时，将 destination 放入 missingFields，不要自行补目的地。
 22. 用户明确要求“所有日程”“全部日程”“所有安排”“全部安排”或“日程列表”，并且没有提供日期或时间范围时，使用 QUERY_EVENT，queryStartTime、queryEndTime 和 keyword 留空，missingFields 不要要求时间。用户说“明天的所有日程”等带时间范围的表达时，仍然填入对应范围。
 23. 用户在上一轮查询后说“删除第一个”“修改第二条”等，序号表示上一轮查询结果中的顺序。不要重新猜测日程时间。
+24. 普通问候、闲聊和不需要执行日历或工具操作的问题使用 CHAT，needConfirm=false，targetAgent=ChatAgent。
 
 JSON 格式：
 {
-  "intent": "CREATE_EVENT | QUERY_EVENT | UPDATE_EVENT | DELETE_EVENT | UNKNOWN",
-  "targetAgent": "CalendarAgent",
-  "actionType": "CREATE_EVENT | QUERY_EVENT | UPDATE_EVENT | DELETE_EVENT",
+  "intent": "CREATE_EVENT | QUERY_EVENT | UPDATE_EVENT | DELETE_EVENT | RUN_SKILLS | CHAT | UNKNOWN",
+  "targetAgent": "CalendarAgent | GenericToolAgent | ChatAgent",
+  "actionType": "CREATE_EVENT | QUERY_EVENT | UPDATE_EVENT | DELETE_EVENT | RUN_SKILLS | CHAT",
   "needConfirm": true,
   "slots": {
     "title": "组会",

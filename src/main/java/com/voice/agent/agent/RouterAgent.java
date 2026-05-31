@@ -58,6 +58,9 @@ public class RouterAgent {
             plan.getMissingFields().add("text");
             return plan;
         }
+        if (ChatAgent.isGreeting(text)) {
+            return buildChatPlan();
+        }
 
         try {
             log.info("Agent router start mode=llm textChars={}", text.length());
@@ -75,11 +78,20 @@ public class RouterAgent {
             if (isDelete(text)) {
                 enrichDeleteResolveRange(llmPlan, request);
             }
+            if (AgentConstants.INTENT_UNKNOWN.equals(llmPlan.getIntent())) {
+                log.info("LLM Router returned UNKNOWN, fallback to rule or chat router");
+                return routeByRuleOrChat(request);
+            }
             return llmPlan;
         } catch (RuntimeException e) {
             log.warn("LLM Router failed, fallback to rule router: {}", e.getMessage());
         }
 
+        return routeByRuleOrChat(request);
+    }
+
+    private AgentPlan routeByRuleOrChat(AgentExecuteRequest request) {
+        String text = request.getText();
         AgentPlan fallbackPlan;
         if (isDelete(text)) {
             fallbackPlan = buildDeletePlan(request);
@@ -102,8 +114,19 @@ public class RouterAgent {
             return fallbackPlan;
         }
 
-        plan.setIntent(AgentConstants.INTENT_UNKNOWN);
-        plan.getMissingFields().add("intent");
+        fallbackPlan = buildChatPlan();
+        log.info("Agent router success mode=rule intent={}", fallbackPlan.getIntent());
+        return fallbackPlan;
+    }
+
+    private AgentPlan buildChatPlan() {
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent(AgentConstants.INTENT_CHAT);
+        plan.setTargetAgent(AgentConstants.TARGET_CHAT_AGENT);
+        plan.setActionType(AgentConstants.ACTION_CHAT);
+        plan.setNeedConfirm(false);
+        plan.getSteps().add(AgentPlanStep.of(1, "RouterAgent", "ROUTE", "router.route"));
+        plan.getSteps().add(AgentPlanStep.of(2, "ChatAgent", "REPLY", "chat.reply"));
         return plan;
     }
 

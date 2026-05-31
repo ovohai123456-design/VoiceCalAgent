@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -160,6 +162,16 @@ class RouterAgentTest {
         assertEquals(AgentConstants.INTENT_CREATE_EVENT, plan.getIntent());
         assertTrue(plan.getCreateEventRequest().getOnlineMeeting());
         assertEquals("\u5f20\u4e09", plan.getCreateEventRequest().getSmsReceiver());
+    }
+
+    @Test
+    void greetingShouldRouteToChatWithoutCallingLlmRouter() {
+        AgentPlan plan = routerAgent.route(request("你好"));
+
+        assertEquals(AgentConstants.INTENT_CHAT, plan.getIntent());
+        assertEquals(AgentConstants.TARGET_CHAT_AGENT, plan.getTargetAgent());
+        assertTrue(plan.getMissingFields().isEmpty());
+        verify(llmRouterAgent, never()).route(any());
     }
 
     @Test

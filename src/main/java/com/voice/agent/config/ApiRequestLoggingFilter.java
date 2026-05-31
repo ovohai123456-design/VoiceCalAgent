@@ -29,7 +29,7 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
         long startedAt = System.currentTimeMillis();
         String path = request.getRequestURI();
         if (request.getQueryString() != null) {
-            path = path + "?" + request.getQueryString();
+            path = path + "?" + request.getQueryString().replaceAll("(?i)(access_token=)[^&]*", "$1***");
         }
 
         log.info("HTTP request start method={} path={} remote={}", request.getMethod(), path, request.getRemoteAddr());

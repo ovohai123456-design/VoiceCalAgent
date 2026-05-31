@@ -204,6 +204,22 @@ class LlmRouterAgentTest {
     }
 
     @Test
+    void shouldBuildChatPlanWithoutMissingFields() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CHAT\",\"targetAgent\":\"CalendarAgent\","
+                        + "\"missingFields\":[\"intent\"]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("你好");
+        request.setCurrentTime("2026-05-31 12:00:00");
+
+        assertEquals(AgentConstants.INTENT_CHAT, routerAgent.route(request).getIntent());
+        assertEquals(AgentConstants.TARGET_CHAT_AGENT, routerAgent.route(request).getTargetAgent());
+        assertTrue(routerAgent.route(request).getMissingFields().isEmpty());
+    }
+
+    @Test
     void shouldIgnoreModelTimeRangeWhenUserRequestsAllEvents() {
         when(jsonExtractor.extractObject("raw")).thenReturn(
                 "{\"intent\":\"QUERY_EVENT\",\"slots\":{"

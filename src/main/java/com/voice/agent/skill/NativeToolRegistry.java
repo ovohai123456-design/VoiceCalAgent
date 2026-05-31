@@ -17,6 +17,9 @@ import org.springframework.util.StringUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * 注册原生工具，用于 LLM 模型调用。
+ */
 @Component
 public class NativeToolRegistry {
     private final Map<String, NativeTool> tools = new LinkedHashMap<>();

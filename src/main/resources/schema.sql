@@ -7,6 +7,7 @@ USE voicecal;
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT NOT NULL AUTO_INCREMENT,
     username VARCHAR(64) NOT NULL,
+    password_hash VARCHAR(100) NULL,
     display_name VARCHAR(100) NULL,
     phone VARCHAR(32) NULL,
     email VARCHAR(128) NULL,

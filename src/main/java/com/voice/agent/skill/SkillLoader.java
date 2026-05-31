@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Skill 描述文件加载器。
+ */
 @Component
 public class SkillLoader {
     private final ObjectMapper objectMapper;

@@ -3,6 +3,9 @@ package com.voice.agent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.voice.agent.agent.AgentApplicationService;
 import com.voice.agent.agent.CommandWorkflowService;
+import com.voice.agent.auth.AuthContext;
+import com.voice.agent.auth.AuthTokenService;
+import com.voice.agent.mapper.UserMapper;
 import com.voice.agent.controller.AgentController;
 import com.voice.agent.controller.CalendarController;
 import com.voice.agent.controller.WorkflowController;
@@ -32,6 +35,7 @@ import com.voice.agent.skill.SkillRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -60,6 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         ContactController.class,
         UserPreferenceController.class
 })
+@AutoConfigureMockMvc(addFilters = false)
 class AgentRouteTest {
     @Autowired
     private MockMvc mockMvc;
@@ -88,6 +93,12 @@ class AgentRouteTest {
     @MockBean
     private UserPreferenceService userPreferenceService;
 
+    @MockBean
+    private AuthTokenService authTokenService;
+
+    @MockBean
+    private UserMapper userMapper;
+
     @Test
     void executeAgentRouteShouldReturnAgentResponse() throws Exception {
         AgentResponse response = agentResponse("task_001", "ok");
@@ -102,6 +113,7 @@ class AgentRouteTest {
         request.setCurrentTime("2026-05-30 10:00:00");
 
         mockMvc.perform(post("/api/agent/execute")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -124,6 +136,7 @@ class AgentRouteTest {
         request.setConfirmToken("ct_001");
 
         mockMvc.perform(post("/api/agent/confirm")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -145,6 +158,7 @@ class AgentRouteTest {
         request.setConfirmToken("ct_001");
 
         mockMvc.perform(post("/api/agent/cancel")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -167,6 +181,7 @@ class AgentRouteTest {
         request.setSlotIndex(0);
 
         mockMvc.perform(post("/api/agent/select-slot")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -189,6 +204,7 @@ class AgentRouteTest {
         request.setCandidateIndex(0);
 
         mockMvc.perform(post("/api/agent/select-event")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -207,7 +223,8 @@ class AgentRouteTest {
         contact.setPhone("13800000001");
         when(contactService.list(1L, null)).thenReturn(Collections.singletonList(contact));
 
-        mockMvc.perform(get("/api/contacts").param("userId", "1"))
+        mockMvc.perform(get("/api/contacts")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].name").value("张三"))
@@ -222,7 +239,8 @@ class AgentRouteTest {
         preference.setDefaultReminderMinutes(10);
         when(userPreferenceService.get(1L)).thenReturn(preference);
 
-        mockMvc.perform(get("/api/preferences").param("userId", "1"))
+        mockMvc.perform(get("/api/preferences")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.defaultDurationMinutes").value(60))
@@ -238,9 +256,10 @@ class AgentRouteTest {
         step.setStepName("Router");
         step.setStatus("SUCCESS");
         step.setLatencyMs(12L);
-        when(commandWorkflowService.listSteps("task_001")).thenReturn(Collections.singletonList(step));
+        when(commandWorkflowService.listSteps("task_001", 1L)).thenReturn(Collections.singletonList(step));
 
-        mockMvc.perform(get("/api/agent/tasks/{taskId}/steps", "task_001"))
+        mockMvc.perform(get("/api/agent/tasks/{taskId}/steps", "task_001")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(1)))
@@ -248,7 +267,7 @@ class AgentRouteTest {
                 .andExpect(jsonPath("$.data[0].skillId").value("router.route"))
                 .andExpect(jsonPath("$.data[0].status").value("SUCCESS"));
 
-        verify(commandWorkflowService).listSteps("task_001");
+        verify(commandWorkflowService).listSteps("task_001", 1L);
     }
 
     @Test
@@ -258,6 +277,7 @@ class AgentRouteTest {
                 .thenReturn(Collections.singletonList(event));
 
         mockMvc.perform(get("/api/calendar/events")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .param("userId", "1")
                         .param("startTime", "2026-05-30 00:00:00")
                         .param("endTime", "2026-05-31 00:00:00")
@@ -290,6 +310,7 @@ class AgentRouteTest {
                 + "}";
 
         mockMvc.perform(post("/api/calendar/events")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -306,6 +327,7 @@ class AgentRouteTest {
         when(calendarService.deleteEvent(eq(100L), eq(1L), eq("SINGLE"))).thenReturn(true);
 
         mockMvc.perform(delete("/api/calendar/events/{eventId}", 100L)
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L)
                         .param("userId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -324,7 +346,8 @@ class AgentRouteTest {
         reminder.setStatus("PENDING");
         when(reminderJobService.listByUser(1L)).thenReturn(Collections.singletonList(reminder));
 
-        mockMvc.perform(get("/api/reminders").param("userId", "1"))
+        mockMvc.perform(get("/api/reminders")
+                        .requestAttr(AuthContext.USER_ID_ATTRIBUTE, 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data", hasSize(1)))

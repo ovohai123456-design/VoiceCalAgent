@@ -148,6 +148,12 @@ public class LlmRouterAgent {
                 plan.getMissingFields().add("skill_calls");
             }
             validateExplicitToolArguments(plan, request);
+        } else if (AgentConstants.INTENT_CHAT.equals(response.getIntent())) {
+            plan.setTargetAgent(AgentConstants.TARGET_CHAT_AGENT);
+            plan.setActionType(AgentConstants.ACTION_CHAT);
+            plan.setNeedConfirm(false);
+            plan.getMissingFields().clear();
+            plan.getToolSteps().clear();
         } else {
             plan.setIntent(AgentConstants.INTENT_UNKNOWN);
             if (plan.getMissingFields().isEmpty()) {

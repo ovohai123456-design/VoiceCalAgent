@@ -1,10 +1,17 @@
 package com.voice.agent.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.time.LocalDateTime;
 
+@TableName("users")
 public class UserEntity {
+    @TableId(type = IdType.AUTO)
     private Long id;
     private String username;
+    private String passwordHash;
     private String displayName;
     private String phone;
     private String email;
@@ -27,6 +34,14 @@ public class UserEntity {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public String getDisplayName() {
