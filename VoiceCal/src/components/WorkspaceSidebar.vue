@@ -13,18 +13,19 @@
               size="small"
               type="danger"
               title="清空全部提醒任务"
-              :disabled="!reminders.length"
+              :disabled="!groupedReminders.length"
               @click="$emit('clear-reminders')"
             />
           </div>
         </div>
         <p class="permission-text">{{ notificationButtonText }}</p>
-        <el-empty v-if="!reminders.length" description="暂无提醒" :image-size="64" />
+        <el-empty v-if="!groupedReminders.length" description="暂无提醒" :image-size="64" />
         <div v-else class="compact-list">
-          <div v-for="reminder in reminders" :key="reminder.id" class="compact-row">
+          <div v-for="reminder in groupedReminders" :key="`${reminder.eventId}-${reminder.runAt}`" class="compact-row">
             <div>
               <strong>{{ resolveReminderTitle(reminder) }}</strong>
               <span>{{ reminder.runAt }}</span>
+              <span>{{ resolveReminderChannels(reminder) }}</span>
             </div>
             <div class="compact-row-actions">
               <el-tag :type="resolveReminderType(reminder.status)" effect="plain" size="small">
@@ -133,7 +134,7 @@ import type { ReminderTask } from '@/api/reminderApi';
 import { listSkills, reloadSkills, type SkillDefinition } from '@/api/skillApi';
 import { DEFAULT_USER_ID } from '@/utils/session';
 
-defineProps<{
+const props = defineProps<{
   reminders: ReminderTask[];
   notificationButtonText: string;
 }>();
@@ -154,6 +155,21 @@ const contactDialogVisible = ref(false);
 const contactForm = reactive<ContactItem>({ userId: Number(DEFAULT_USER_ID), name: '', phone: '', email: '' });
 const preference = reactive<UserPreference>({ userId: Number(DEFAULT_USER_ID) });
 const enabledSkillCount = computed(() => skills.value.filter((skill) => skill.enabled).length);
+const groupedReminders = computed(() => {
+  const groups = new Map<string, ReminderTask[]>();
+  for (const reminder of props.reminders) {
+    const key = `${reminder.eventId}-${reminder.runAt}`;
+    const items = groups.get(key) ?? [];
+    items.push(reminder);
+    groups.set(key, items);
+  }
+  return Array.from(groups.values()).map((items) => ({
+    ...items[0],
+    relatedReminderIds: items.map((item) => item.id),
+    jobTypes: Array.from(new Set(items.map((item) => item.jobType))),
+    status: resolveGroupedReminderStatus(items),
+  }));
+});
 
 onMounted(() => {
   void Promise.all([loadSkills(), loadContacts(), loadPreference()]);
@@ -236,6 +252,18 @@ function resolveReminderTitle(reminder: ReminderTask): string {
 
 function resolveReminderStatus(status: string): string {
   return { PENDING: '待执行', EXECUTED: '已完成', CANCELED: '已取消', FAILED: '失败' }[status] ?? status;
+}
+
+function resolveGroupedReminderStatus(reminders: ReminderTask[]): string {
+  if (reminders.some((reminder) => reminder.status === 'FAILED')) return 'FAILED';
+  if (reminders.some((reminder) => reminder.status === 'PENDING')) return 'PENDING';
+  if (reminders.some((reminder) => reminder.status === 'EXECUTED')) return 'EXECUTED';
+  return reminders[0]?.status ?? 'CANCELED';
+}
+
+function resolveReminderChannels(reminder: ReminderTask): string {
+  const labels: Record<string, string> = { IN_APP: '应用内提醒', EMAIL: '邮件提醒' };
+  return (reminder.jobTypes ?? [reminder.jobType]).map((jobType) => labels[jobType] ?? jobType).join(' / ');
 }
 
 function resolveReminderType(status: string): 'success' | 'warning' | 'danger' | 'info' {

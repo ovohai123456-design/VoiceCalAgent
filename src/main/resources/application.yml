@@ -67,7 +67,7 @@ voicecal:
   confirm:
     expire-minutes: 5
     single-pending-per-session: true
-    auto-execute-safe-writes: false
+    auto-execute-safe-writes: true
 
   conversation:
     clarification-timeout-minutes: 10

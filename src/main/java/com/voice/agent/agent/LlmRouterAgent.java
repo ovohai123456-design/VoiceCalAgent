@@ -227,7 +227,7 @@ public class LlmRouterAgent {
 
         CreateEventRequest createRequest = new CreateEventRequest();
         createRequest.setUserId(defaultValueResolver.resolveUserId(request.getUserId()));
-        createRequest.setTitle(trimToNull(slots.getTitle()));
+        createRequest.setTitle(resolveCreateTitle(slots.getTitle(), request.getText()));
         createRequest.setStartTime(startTime);
         createRequest.setEndTime(endTime);
         createRequest.setLocation(trimToNull(slots.getLocation()));
@@ -247,7 +247,9 @@ public class LlmRouterAgent {
         createRequest.setPlannedToolSteps(plan.getToolSteps());
         plan.setCreateEventRequest(createRequest);
 
-        if (!StringUtils.hasText(createRequest.getTitle()) && !plan.getMissingFields().contains("title")) {
+        if (StringUtils.hasText(createRequest.getTitle())) {
+            plan.getMissingFields().removeIf("title"::equals);
+        } else if (!plan.getMissingFields().contains("title")) {
             plan.getMissingFields().add("title");
         }
         if (startTime == null && !plan.getMissingFields().contains("start_time")) {
@@ -506,6 +508,13 @@ public class LlmRouterAgent {
         }
         long amount = Long.parseLong(matcher.group(1));
         return "小时".equals(matcher.group(2)) ? Duration.ofHours(amount) : Duration.ofMinutes(amount);
+    }
+
+    private String resolveCreateTitle(String modelTitle, String text) {
+        if (StringUtils.hasText(text) && text.contains("腾讯会议")) {
+            return "腾讯会议";
+        }
+        return trimToNull(modelTitle);
     }
 
     private LocalDateTime normalizeRelativeEnd(

@@ -2,9 +2,11 @@ import { http, unwrapApiResponse } from '@/api/http';
 
 export interface ReminderTask {
   id: number;
+  relatedReminderIds?: number[];
   userId: number;
   eventId: number;
   jobType: string;
+  jobTypes?: string[];
   jobPayloadJson?: string;
   runAt: string;
   status: string;

@@ -458,6 +458,11 @@ public class AgentApplicationService {
                 AgentConstants.ACTION_DELETE_EVENT,
                 prepared.getPayload()
         );
+        if (shouldAutoExecuteSafeWrites()
+                && prepared.getPayload().getEventIds() != null
+                && !prepared.getPayload().getEventIds().isEmpty()) {
+            return executePreparedAction(task, action, 3, "calendar.delete", "CalendarAgent 自动删除日程");
+        }
         return createPendingResponse(task, action, prepared.getReplyText());
     }
 

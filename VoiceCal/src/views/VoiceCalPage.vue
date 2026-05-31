@@ -390,7 +390,8 @@ async function enableBrowserNotifications(): Promise<void> {
 async function handleDeleteReminder(reminder: ReminderTask): Promise<void> {
   try {
     await ElMessageBox.confirm('确认删除该提醒任务吗？', '删除提醒任务', { type: 'warning' });
-    await deleteReminderTask(reminder.id, DEFAULT_USER_ID);
+    const reminderIds = reminder.relatedReminderIds?.length ? reminder.relatedReminderIds : [reminder.id];
+    await Promise.all(reminderIds.map((reminderId) => deleteReminderTask(reminderId, DEFAULT_USER_ID)));
     await refreshReminders();
     ElMessage.success('提醒任务已删除');
   } catch (error) {

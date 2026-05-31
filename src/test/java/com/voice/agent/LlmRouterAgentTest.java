@@ -138,6 +138,26 @@ class LlmRouterAgentTest {
     }
 
     @Test
+    void shouldRecoverTencentMeetingTitleFromExplicitText() {
+        when(jsonExtractor.extractObject("raw")).thenReturn(
+                "{\"intent\":\"CREATE_EVENT\",\"slots\":{"
+                        + "\"startTime\":\"2026-05-31 18:12:00\","
+                        + "\"endTime\":\"2026-05-31 19:12:00\",\"onlineMeeting\":true},"
+                        + "\"missingFields\":[\"title\"]}"
+        );
+        AgentExecuteRequest request = new AgentExecuteRequest();
+        request.setUserId(1L);
+        request.setText("\u5e2e\u6211\u521b\u5efa\u4e00\u4e2a12\u5206\u949f\u540e\u7684\u817e\u8baf\u4f1a\u8bae \u65f6\u957f\u662f1\u5c0f\u65f6");
+        request.setCurrentTime("2026-05-31 18:00:00");
+
+        assertEquals(
+                "\u817e\u8baf\u4f1a\u8bae",
+                routerAgent.route(request).getCreateEventRequest().getTitle()
+        );
+        assertFalse(routerAgent.route(request).getMissingFields().contains("title"));
+    }
+
+    @Test
     void shouldAllowDeleteByTimeRangeWithoutTitle() {
         when(jsonExtractor.extractObject("raw")).thenReturn(
                 "{\"intent\":\"DELETE_EVENT\",\"slots\":{"
