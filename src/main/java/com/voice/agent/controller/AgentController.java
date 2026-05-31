@@ -1,6 +1,7 @@
 package com.voice.agent.controller;
 
 import com.voice.agent.agent.AgentApplicationService;
+import com.voice.agent.auth.AuthContext;
 import com.voice.agent.model.dto.AgentCancelRequest;
 import com.voice.agent.model.dto.AgentConfirmRequest;
 import com.voice.agent.model.dto.AgentExecuteRequest;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.function.Supplier;
 
 /**
@@ -32,28 +34,33 @@ public class AgentController {
     }
 
     @PostMapping("/execute")
-    public ApiResponse<AgentResponse> execute(@RequestBody AgentExecuteRequest request) {
+    public ApiResponse<AgentResponse> execute(@RequestBody AgentExecuteRequest request, HttpServletRequest httpRequest) {
         log.info("开始执行 Agent 指令");
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> agentApplicationService.execute(request));
     }
 
     @PostMapping("/confirm")
-    public ApiResponse<AgentResponse> confirm(@RequestBody AgentConfirmRequest request) {
+    public ApiResponse<AgentResponse> confirm(@RequestBody AgentConfirmRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> agentApplicationService.confirm(request));
     }
 
     @PostMapping("/cancel")
-    public ApiResponse<AgentResponse> cancel(@RequestBody AgentCancelRequest request) {
+    public ApiResponse<AgentResponse> cancel(@RequestBody AgentCancelRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> agentApplicationService.cancel(request));
     }
 
     @PostMapping("/select-slot")
-    public ApiResponse<AgentResponse> selectSlot(@RequestBody AgentSelectSlotRequest request) {
+    public ApiResponse<AgentResponse> selectSlot(@RequestBody AgentSelectSlotRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> agentApplicationService.selectSlot(request));
     }
 
     @PostMapping("/select-event")
-    public ApiResponse<AgentResponse> selectEvent(@RequestBody AgentSelectEventRequest request) {
+    public ApiResponse<AgentResponse> selectEvent(@RequestBody AgentSelectEventRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> agentApplicationService.selectEvent(request));
     }
 

@@ -1,5 +1,6 @@
 package com.voice.agent.controller;
 
+import com.voice.agent.auth.AuthContext;
 import com.voice.agent.model.dto.ConflictCheckRequest;
 import com.voice.agent.model.dto.CreateEventRequest;
 import com.voice.agent.model.dto.FreeSlotRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Supplier;
@@ -46,7 +48,8 @@ public class CalendarController {
      * <p>创建事件时，会检查时间冲突，如果冲突则返回409错误。</p>
      */
     @PostMapping("/events")
-    public ApiResponse<CalendarEventVO> createEvent(@RequestBody CreateEventRequest request) {
+    public ApiResponse<CalendarEventVO> createEvent(@RequestBody CreateEventRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> calendarService.createEvent(request));
     }
 
@@ -57,15 +60,15 @@ public class CalendarController {
      */
     @GetMapping("/events")
     public ApiResponse<List<CalendarEventVO>> queryEvents(
-            @RequestParam(required = false) Long userId,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            HttpServletRequest httpRequest
     ) {
         // GET 查询参数不适合直接绑定复杂 DTO，这里手动组装，避免时间格式转换不稳定。
         QueryEventRequest request = new QueryEventRequest();
-        request.setUserId(userId);
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         request.setStartTime(startTime);
         request.setEndTime(endTime);
         request.setKeyword(keyword);
@@ -81,8 +84,10 @@ public class CalendarController {
     @PutMapping("/events/{eventId}")
     public ApiResponse<CalendarEventVO> updateEvent(
             @PathVariable Long eventId,
-            @RequestBody UpdateEventRequest request
+            @RequestBody UpdateEventRequest request,
+            HttpServletRequest httpRequest
     ) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> calendarService.updateEvent(eventId, request));
     }
 
@@ -94,10 +99,10 @@ public class CalendarController {
     @DeleteMapping("/events/{eventId}")
     public ApiResponse<Boolean> deleteEvent(
             @PathVariable Long eventId,
-            @RequestParam(required = false) Long userId,
-            @RequestParam(required = false, defaultValue = "SINGLE") String scope
+            @RequestParam(required = false, defaultValue = "SINGLE") String scope,
+            HttpServletRequest httpRequest
     ) {
-        return handle(() -> calendarService.deleteEvent(eventId, userId, scope));
+        return handle(() -> calendarService.deleteEvent(eventId, AuthContext.requireUserId(httpRequest), scope));
     }
 
     /**
@@ -106,7 +111,8 @@ public class CalendarController {
      * <p>检查时间冲突时，会返回所有冲突的事件。</p>
      */
     @PostMapping("/conflict/check")
-    public ApiResponse<ConflictResultVO> checkConflict(@RequestBody ConflictCheckRequest request) {
+    public ApiResponse<ConflictResultVO> checkConflict(@RequestBody ConflictCheckRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> calendarService.checkConflict(request));
     }
 
@@ -116,7 +122,8 @@ public class CalendarController {
      * <p>查找空闲时间段时，会返回所有空闲时间段。</p>
      */
     @PostMapping("/free-slots")
-    public ApiResponse<List<FreeSlotVO>> findFreeSlots(@RequestBody FreeSlotRequest request) {
+    public ApiResponse<List<FreeSlotVO>> findFreeSlots(@RequestBody FreeSlotRequest request, HttpServletRequest httpRequest) {
+        request.setUserId(AuthContext.requireUserId(httpRequest));
         return handle(() -> calendarService.findFreeSlots(request));
     }
 
