@@ -43,6 +43,7 @@ public class AgentApplicationService {
     );
 
     private final RouterAgent routerAgent;
+    private final ChatAgent chatAgent;
     private final CalendarAgent calendarAgent;
     private final CommandActionService commandActionService;
     private final ConfirmService confirmService;
@@ -61,6 +62,7 @@ public class AgentApplicationService {
 
     public AgentApplicationService(
             RouterAgent routerAgent,
+            ChatAgent chatAgent,
             CalendarAgent calendarAgent,
             CommandActionService commandActionService,
             ConfirmService confirmService,
@@ -72,6 +74,7 @@ public class AgentApplicationService {
             ConversationMemoryService conversationMemoryService
     ) {
         this.routerAgent = routerAgent;
+        this.chatAgent = chatAgent;
         this.calendarAgent = calendarAgent;
         this.commandActionService = commandActionService;
         this.confirmService = confirmService;
@@ -142,6 +145,10 @@ public class AgentApplicationService {
             }
 
             AgentResponse response;
+            if (AgentConstants.INTENT_CHAT.equals(plan.getIntent())) {
+                response = executeChat(task, request);
+                return finalizeExecuteResponse(request, task, response);
+            }
             if (AgentConstants.INTENT_CREATE_EVENT.equals(plan.getIntent())) {
                 response = prepareCreateEvent(task, plan);
                 return finalizeExecuteResponse(request, task, response);
@@ -785,6 +792,26 @@ public class AgentApplicationService {
         return response;
     }
 
+    private AgentResponse executeChat(CommandTaskEntity task, AgentExecuteRequest request) {
+        ExecutionLogEntity chatLog = commandWorkflowService.addLog(
+                task.getTaskId(),
+                2,
+                "chat.reply",
+                "ChatAgent 生成闲聊回复",
+                "agent",
+                request.getText()
+        );
+        try {
+            String reply = chatAgent.reply(request.getText(), request.getHistory());
+            commandWorkflowService.markLogSuccess(chatLog, reply);
+            commandWorkflowService.finishSuccess(task.getTaskId(), AgentConstants.INTENT_CHAT, reply, reply);
+            return baseResponse(true, task.getTaskId(), reply);
+        } catch (RuntimeException e) {
+            commandWorkflowService.markLogFailed(chatLog, e.getMessage());
+            throw e;
+        }
+    }
+
 
     private AgentResponse finalizeExecuteResponse(AgentExecuteRequest request, CommandTaskEntity task, AgentResponse response) {
         if (response == null) {
@@ -1089,7 +1116,8 @@ public class AgentApplicationService {
         if (!StringUtils.hasText(text)) {
             return false;
         }
-        return !text.contains("安排")
+        return !ChatAgent.isGreeting(text)
+                && !text.contains("安排")
                 && !text.contains("创建")
                 && !text.contains("新建")
                 && !text.contains("查询")

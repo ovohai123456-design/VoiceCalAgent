@@ -5,6 +5,7 @@ import com.voice.agent.agent.ActionPlanBuilder;
 import com.voice.agent.agent.AgentConstants;
 import com.voice.agent.agent.AgentPlan;
 import com.voice.agent.agent.CalendarAgent;
+import com.voice.agent.agent.ChatAgent;
 import com.voice.agent.agent.CommandActionService;
 import com.voice.agent.agent.CommandWorkflowService;
 import com.voice.agent.agent.ConfirmService;
@@ -56,6 +57,8 @@ class AgentApplicationServiceTest {
     @Mock
     private RouterAgent routerAgent;
     @Mock
+    private ChatAgent chatAgent;
+    @Mock
     private CalendarAgent calendarAgent;
     @Mock
     private CommandActionService commandActionService;
@@ -80,6 +83,7 @@ class AgentApplicationServiceTest {
     void setUp() {
         service = new AgentApplicationService(
                 routerAgent,
+                chatAgent,
                 calendarAgent,
                 commandActionService,
                 confirmService,
@@ -199,6 +203,37 @@ class AgentApplicationServiceTest {
 
         assertEquals("帮我安排项目会 明天下午三点", request.getText());
         verify(commandWorkflowService).markClarificationContinued("task_previous");
+    }
+
+    @Test
+    void chatShouldReturnNaturalReplyAndFinishTask() {
+        AgentExecuteRequest request = executeRequest();
+        request.setText("你好");
+        CommandTaskEntity task = task();
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent(AgentConstants.INTENT_CHAT);
+        ExecutionLogEntity routeLog = new ExecutionLogEntity();
+        ExecutionLogEntity chatLog = new ExecutionLogEntity();
+
+        when(defaultValueResolver.resolveUserId(1L)).thenReturn(1L);
+        when(commandWorkflowService.createTask(request)).thenReturn(task);
+        when(commandWorkflowService.addLog(eq("task_001"), eq(1), any(), any(), any(), any()))
+                .thenReturn(routeLog);
+        when(routerAgent.route(request)).thenReturn(plan);
+        when(commandWorkflowService.addLog(eq("task_001"), eq(2), any(), any(), any(), any()))
+                .thenReturn(chatLog);
+        when(chatAgent.reply("你好", null)).thenReturn("你好，我是 VoiceCal。");
+
+        AgentResponse response = service.execute(request);
+
+        assertTrue(response.getSuccess());
+        assertEquals("你好，我是 VoiceCal。", response.getReplyText());
+        verify(commandWorkflowService).finishSuccess(
+                "task_001",
+                AgentConstants.INTENT_CHAT,
+                "你好，我是 VoiceCal。",
+                "你好，我是 VoiceCal。"
+        );
     }
 
     @Test

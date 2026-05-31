@@ -192,6 +192,14 @@ public class CommandWorkflowService {
         ).stream().map(this::toStepVO).collect(Collectors.toList());
     }
 
+    public List<ExecutionLogVO> listSteps(String taskId, Long userId) {
+        CommandTaskEntity task = findTask(taskId);
+        if (task == null || userId == null || !userId.equals(task.getUserId())) {
+            throw new IllegalArgumentException("任务不存在");
+        }
+        return listSteps(taskId);
+    }
+
     private ExecutionLogVO toStepVO(ExecutionLogEntity entity) {
         ExecutionLogVO vo = new ExecutionLogVO();
         vo.setId(entity.getId());
